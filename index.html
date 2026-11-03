@@ -1,0 +1,1525 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>たのしい！タイピング</title>
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Google Fonts: M PLUS Rounded 1c (丸ゴシック) -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=M+PLUS+Rounded+1c:wght@500;800;900&display=swap" rel="stylesheet">
+
+    <style>
+        body {
+            font-family: 'M PLUS Rounded 1c', sans-serif;
+            user-select: none;
+            -webkit-user-select: none;
+        }
+
+        /* ルビのスタイリング */
+        ruby {
+            ruby-position: over;
+        }
+        rt {
+            font-size: 0.55em;
+            font-weight: 800;
+            color: #475569;
+            line-height: 1;
+        }
+
+        /* キーボード・指パルスアニメーション */
+        @keyframes pulse-glow {
+            0%, 100% { transform: scale(1); filter: drop-shadow(0 0 10px rgba(250, 204, 21, 0.9)); }
+            50% { transform: scale(1.08); filter: drop-shadow(0 0 18px rgba(250, 204, 21, 1)); }
+        }
+
+        .active-key {
+            animation: pulse-glow 0.8s infinite ease-in-out;
+            z-index: 20;
+            border-color: #eab308 !important;
+            background-color: #fef08a !important;
+            color: #000 !important;
+        }
+
+        .finger-active {
+            animation: pulse-glow 0.8s infinite ease-in-out;
+            stroke-width: 4px;
+        }
+
+        /* 紙吹雪用キャンバス */
+        #confetti-canvas {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100vw;
+            height: 100vh;
+            pointer-events: none;
+            z-index: 100;
+        }
+    </style>
+</head>
+<body class="bg-amber-50 text-slate-800 h-screen w-screen overflow-hidden flex flex-col justify-between">
+
+    <!-- 紙吹雪キャンバス -->
+    <canvas id="confetti-canvas"></canvas>
+
+    <!-- 名前入力モーダル -->
+    <div id="name-modal" class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+        <div class="bg-white border-4 border-yellow-400 rounded-3xl p-6 max-w-md w-full shadow-2xl text-center space-y-4">
+            <div class="text-4xl">👋 💻</div>
+            <h2 class="text-2xl font-black text-amber-800">
+                <ruby>クラス<rt>くらす</rt></ruby>と <ruby>名前<rt>なまえ</rt></ruby>を <ruby>入<rt>にゅう</rt></ruby><ruby>力<rt>りょく</rt></ruby>してね！
+            </h2>
+            
+            <!-- 学年・組の選択 -->
+            <div class="flex gap-2 text-left">
+                <div class="w-1/2">
+                    <label class="block text-xs font-bold text-amber-900 mb-1">
+                        <ruby>学<rt>がく</rt></ruby><ruby>年<rt>ねん</rt></ruby>
+                    </label>
+                    <select id="student-grade-select" class="w-full text-center text-lg font-black p-2 border-2 border-amber-300 rounded-xl bg-amber-50 focus:outline-none focus:border-amber-500">
+                        <option value="1年">1年</option>
+                        <option value="2年">2年</option>
+                        <option value="3年">3年</option>
+                        <option value="4年">4年</option>
+                        <option value="5年">5年</option>
+                        <option value="6年">6年</option>
+                    </select>
+                </div>
+                <div class="w-1/2">
+                    <label class="block text-xs font-bold text-amber-900 mb-1">
+                        <ruby>組<rt>くみ</rt></ruby>
+                    </label>
+                    <select id="student-class-select" class="w-full text-center text-lg font-black p-2 border-2 border-amber-300 rounded-xl bg-amber-50 focus:outline-none focus:border-amber-500">
+                        <option value="1組">1組</option>
+                        <option value="2組">2組</option>
+                        <option value="3組">3組</option>
+                        <option value="4組">4組</option>
+                        <option value="5組">5組</option>
+                    </select>
+                </div>
+            </div>
+
+            <div>
+                <label class="block text-left text-xs font-bold text-amber-900 mb-1">
+                    <ruby>名前<rt>なまえ</rt></ruby>
+                </label>
+                <input type="text" id="student-name-input" placeholder="例: たろう" class="w-full text-center text-xl md:text-2xl font-black p-3 border-4 border-amber-300 rounded-2xl focus:outline-none focus:border-amber-500 bg-amber-50 text-slate-800" maxlength="12">
+            </div>
+
+            <button onclick="saveStudentName()" class="w-full bg-emerald-500 hover:bg-emerald-600 text-white font-black text-xl py-3 rounded-2xl border-b-4 border-emerald-700 shadow-lg active:scale-95 transition">
+                スタートする！
+            </button>
+        </div>
+    </div>
+
+    <!-- 先生モード用パスコードモーダル -->
+    <div id="teacher-pass-modal" class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 hidden flex items-center justify-center p-4">
+        <div class="bg-white border-4 border-purple-400 rounded-3xl p-6 max-w-sm w-full shadow-2xl text-center space-y-4">
+            <div class="text-4xl">🔐 👨‍🏫</div>
+            <h2 class="text-xl font-black text-purple-900">先生用 パスコード</h2>
+            <p class="text-xs text-slate-600 font-bold">数字4桁を入力してください</p>
+            <input type="password" id="teacher-pass-input" placeholder="••••" maxlength="4" class="w-full text-center text-3xl tracking-widest font-black p-2 border-4 border-purple-300 rounded-2xl focus:outline-none focus:border-purple-500 bg-purple-50">
+            <div class="flex gap-2">
+                <button onclick="closeTeacherPassModal()" class="w-1/2 bg-slate-300 hover:bg-slate-400 text-slate-700 font-black py-2 rounded-xl transition">
+                    キャンセル
+                </button>
+                <button onclick="submitTeacherPass()" class="w-1/2 bg-purple-600 hover:bg-purple-700 text-white font-black py-2 rounded-xl transition">
+                    ひらく
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- ヘッダー (高さ固定) -->
+    <header class="bg-yellow-400 border-b-4 border-yellow-500 h-12 md:h-14 px-4 flex items-center justify-between shadow-md shrink-0">
+        <button onclick="showScreen('title-screen')" class="flex items-center space-x-2 text-xl md:text-2xl font-black text-white hover:opacity-90 transition">
+            <span>⌨️</span>
+            <span><ruby>楽<rt>たの</rt></ruby>しい！タイピング</span>
+        </button>
+        <div class="flex items-center space-x-2">
+            <button onclick="openTeacherPassModal()" class="bg-purple-600 hover:bg-purple-700 text-white font-bold px-3 py-1 rounded-xl border-2 border-purple-400 shadow transition text-xs md:text-sm flex items-center space-x-1">
+                <span>👨‍🏫</span>
+                <span><ruby>先生<rt>せんせい</rt></ruby>モード</span>
+            </button>
+            <button id="sound-toggle-btn" onclick="toggleSound()" class="bg-white text-yellow-700 font-bold px-3 py-1 rounded-xl border-2 border-yellow-300 shadow hover:bg-yellow-100 transition text-xs md:text-sm flex items-center space-x-1">
+                <span id="sound-icon">🔊</span>
+                <span id="sound-text"><ruby>音<rt>おと</rt></ruby>：オン</span>
+            </button>
+        </div>
+    </header>
+
+    <!-- メインエリア (100vhに完全フィット) -->
+    <main class="flex-grow h-[calc(100vh-3rem)] overflow-hidden flex items-center justify-center p-2 sm:p-3">
+        <div class="w-full max-w-4xl h-full flex flex-col justify-between">
+
+            <!-- 1. タイトル・設定画面 -->
+            <div id="title-screen" class="bg-white rounded-3xl p-4 md:p-6 border-4 border-yellow-300 shadow-xl h-full flex flex-col justify-between overflow-y-auto">
+                
+                <div class="bg-yellow-100 rounded-2xl p-3 border-2 border-yellow-300 text-center shrink-0 relative">
+                    <h1 class="text-2xl md:text-4xl font-black text-yellow-700">
+                        <ruby>五<rt>ご</rt>十<rt>じゅう</rt>音<rt>おん</rt></ruby><ruby>小<rt>しょう</rt></ruby><ruby>学<rt>がく</rt></ruby><ruby>生<rt>せい</rt></ruby>タイピング
+                    </h1>
+                    <!-- 現在の児童名表示 & 変更ボタン -->
+                    <div class="mt-1 flex items-center justify-center space-x-2">
+                        <span class="text-xs md:text-sm font-bold text-slate-600">👤 <ruby>今<rt>いま</rt></ruby>のなまえ: <strong id="current-user-display" class="text-amber-800 font-black text-base md:text-lg">----</strong></span>
+                        <button onclick="openNameModal()" class="text-xs bg-white hover:bg-slate-100 border border-slate-300 text-slate-700 font-bold px-2 py-0.5 rounded-lg shadow-sm">
+                            <ruby>変<rt>か</rt></ruby>える
+                        </button>
+                    </div>
+                </div>
+
+                <!-- 難易度選択 -->
+                <div class="space-y-1 md:space-y-2">
+                    <h2 class="text-lg md:text-xl font-black text-slate-700">
+                        1. <ruby>難<rt>むず</rt></ruby>かしさを <ruby>選<rt>えら</rt></ruby>ぶ
+                    </h2>
+                    <div class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-1.5 md:gap-2">
+                        <button onclick="selectLevel('easy')" id="btn-level-easy" class="level-btn bg-green-400 hover:bg-green-500 text-white font-black py-2 px-1 rounded-2xl border-b-4 border-green-600 text-base md:text-xl shadow transition transform active:scale-95 flex flex-col items-center">
+                            <span class="text-xl md:text-2xl">🐣</span>
+                            <div><ruby>初<rt>しょ</rt></ruby><ruby>級<rt>きゅう</rt></ruby></div>
+                            <div class="text-[10px] md:text-xs font-bold opacity-90"><ruby>五<rt>ご</rt>十<rt>じゅう</rt>音<rt>おん</rt></ruby></div>
+                        </button>
+                        <button onclick="selectLevel('medium')" id="btn-level-medium" class="level-btn bg-blue-400 hover:bg-blue-500 text-white font-black py-2 px-1 rounded-2xl border-b-4 border-blue-600 text-base md:text-xl shadow transition transform active:scale-95 flex flex-col items-center">
+                            <span class="text-xl md:text-2xl">🐥</span>
+                            <div><ruby>中<rt>ちゅう</rt></ruby><ruby>級<rt>きゅう</rt></ruby></div>
+                            <div class="text-[10px] md:text-xs font-bold opacity-90">2〜3<ruby>文<rt>も</rt></ruby><ruby>字<rt>じ</rt></ruby></div>
+                        </button>
+                        <button onclick="selectLevel('hard')" id="btn-level-hard" class="level-btn bg-pink-400 hover:bg-pink-500 text-white font-black py-2 px-1 rounded-2xl border-b-4 border-pink-600 text-base md:text-xl shadow transition transform active:scale-95 flex flex-col items-center">
+                            <span class="text-xl md:text-2xl">🦁</span>
+                            <div><ruby>上<rt>じょう</rt></ruby><ruby>級<rt>きゅう</rt></ruby></div>
+                            <div class="text-[10px] md:text-xs font-bold opacity-90">4〜5<ruby>文<rt>も</rt></ruby><ruby>字<rt>じ</rt></ruby></div>
+                        </button>
+                        <button onclick="selectLevel('oni')" id="btn-level-oni" class="level-btn bg-purple-500 hover:bg-purple-600 text-white font-black py-2 px-1 rounded-2xl border-b-4 border-purple-700 text-base md:text-xl shadow transition transform active:scale-95 flex flex-col items-center">
+                            <span class="text-xl md:text-2xl">👹</span>
+                            <div><ruby>鬼<rt>おに</rt></ruby><ruby>級<rt>きゅう</rt></ruby></div>
+                            <div class="text-[10px] md:text-xs font-bold opacity-90"><ruby>長<rt>なが</rt></ruby>い<ruby>文<rt>ぶん</rt></ruby><ruby>章<rt>しょう</rt></ruby></div>
+                        </button>
+                        <button onclick="selectLevel('kami')" id="btn-level-kami" class="level-btn col-span-2 sm:col-span-1 bg-red-500 hover:bg-red-600 text-white font-black py-2 px-1 rounded-2xl border-b-4 border-red-700 text-base md:text-xl shadow transition transform active:scale-95 flex flex-col items-center">
+                            <span class="text-xl md:text-2xl">👑</span>
+                            <div><ruby>神<rt>かみ</rt></ruby><ruby>級<rt>きゅう</rt></ruby></div>
+                            <div class="text-[10px] md:text-xs font-bold opacity-90"><ruby>小<rt>ちい</rt></ruby>さい<ruby>文<rt>も</rt></ruby><ruby>字<rt>じ</rt></ruby>・<ruby>伸<rt>の</rt></ruby>ばし<ruby>棒<rt>ぼう</rt></ruby></div>
+                        </button>
+                    </div>
+                </div>
+
+                <!-- 五十音・行選択 -->
+                <div class="space-y-1 md:space-y-2">
+                    <h2 class="text-lg md:text-xl font-black text-slate-700">
+                        2. <ruby>行<rt>ぎょう</rt></ruby>を <ruby>選<rt>えら</rt></ruby>ぶ
+                    </h2>
+                    <div class="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-6 gap-2">
+                        <button onclick="selectRow('a')" id="btn-row-a" class="row-btn bg-orange-100 hover:bg-orange-200 border-2 border-orange-300 font-black text-orange-600 py-1.5 md:py-2 rounded-xl text-base md:text-lg shadow">あ<ruby>行<rt>ぎょう</rt></ruby></button>
+                        <button onclick="selectRow('ka')" id="btn-row-ka" class="row-btn bg-orange-100 hover:bg-orange-200 border-2 border-orange-300 font-black text-orange-600 py-1.5 md:py-2 rounded-xl text-base md:text-lg shadow">か<ruby>行<rt>ぎょう</rt></ruby></button>
+                        <button onclick="selectRow('sa')" id="btn-row-sa" class="row-btn bg-orange-100 hover:bg-orange-200 border-2 border-orange-300 font-black text-orange-600 py-1.5 md:py-2 rounded-xl text-base md:text-lg shadow">さ<ruby>行<rt>ぎょう</rt></ruby></button>
+                        <button onclick="selectRow('ta')" id="btn-row-ta" class="row-btn bg-orange-100 hover:bg-orange-200 border-2 border-orange-300 font-black text-orange-600 py-1.5 md:py-2 rounded-xl text-base md:text-lg shadow">た<ruby>行<rt>ぎょう</rt></ruby></button>
+                        <button onclick="selectRow('na')" id="btn-row-na" class="row-btn bg-orange-100 hover:bg-orange-200 border-2 border-orange-300 font-black text-orange-600 py-1.5 md:py-2 rounded-xl text-base md:text-lg shadow">な<ruby>行<rt>ぎょう</rt></ruby></button>
+                        <button onclick="selectRow('ha')" id="btn-row-ha" class="row-btn bg-orange-100 hover:bg-orange-200 border-2 border-orange-300 font-black text-orange-600 py-1.5 md:py-2 rounded-xl text-base md:text-lg shadow">は<ruby>行<rt>ぎょう</rt></ruby></button>
+                        <button onclick="selectRow('ma')" id="btn-row-ma" class="row-btn bg-orange-100 hover:bg-orange-200 border-2 border-orange-300 font-black text-orange-600 py-1.5 md:py-2 rounded-xl text-base md:text-lg shadow">ま<ruby>行<rt>ぎょう</rt></ruby></button>
+                        <button onclick="selectRow('ya')" id="btn-row-ya" class="row-btn bg-orange-100 hover:bg-orange-200 border-2 border-orange-300 font-black text-orange-600 py-1.5 md:py-2 rounded-xl text-base md:text-lg shadow">や<ruby>行<rt>ぎょう</rt></ruby></button>
+                        <button onclick="selectRow('ra')" id="btn-row-ra" class="row-btn bg-orange-100 hover:bg-orange-200 border-2 border-orange-300 font-black text-orange-600 py-1.5 md:py-2 rounded-xl text-base md:text-lg shadow">ら<ruby>行<rt>ぎょう</rt></ruby></button>
+                        <button onclick="selectRow('wa')" id="btn-row-wa" class="row-btn bg-orange-100 hover:bg-orange-200 border-2 border-orange-300 font-black text-orange-600 py-1.5 md:py-2 rounded-xl text-base md:text-lg shadow">わ<ruby>行<rt>ぎょう</rt></ruby></button>
+                        <button onclick="selectRow('all')" id="btn-row-all" class="row-btn col-span-2 bg-purple-100 hover:bg-purple-200 border-2 border-purple-400 font-black text-purple-700 py-1.5 md:py-2 rounded-xl text-base md:text-lg shadow">🌟 <ruby>全<rt>ぜん</rt></ruby><ruby>部<rt>ぶ</rt></ruby></button>
+                    </div>
+                </div>
+
+                <!-- ボタンエリア -->
+                <div class="flex justify-center gap-3 pt-2">
+                    <button onclick="startGame()" class="bg-red-500 hover:bg-red-600 text-white font-black text-2xl md:text-3xl py-3 px-8 rounded-2xl border-b-4 border-red-700 shadow-lg transition transform active:scale-95 flex items-center space-x-2">
+                        <span>▶️</span>
+                        <span>スタート！</span>
+                    </button>
+                    <button onclick="showScreen('medal-screen')" class="bg-amber-400 hover:bg-amber-500 text-amber-950 font-black text-xl md:text-2xl py-3 px-6 rounded-2xl border-b-4 border-amber-600 shadow-lg transition transform active:scale-95 flex items-center space-x-1">
+                        <span>🥇</span>
+                        <span>メダルを <ruby>見<rt>み</rt></ruby>る</span>
+                    </button>
+                </div>
+
+            </div>
+
+            <!-- 2. ゲームプレイ画面 (全画面フィット) -->
+            <div id="game-screen" class="hidden bg-white rounded-3xl p-3 md:p-4 border-4 border-yellow-300 shadow-xl h-full flex flex-col justify-between">
+                
+                <!-- 上部ステータス -->
+                <div class="flex justify-between items-center bg-yellow-100 rounded-xl p-2 border-2 border-yellow-300 text-base md:text-xl font-black shrink-0">
+                    <div class="flex items-center space-x-1 text-yellow-900">
+                        <span><ruby>問<rt>もん</rt></ruby><ruby>題<rt>だい</rt></ruby>:</span>
+                        <span id="question-progress" class="text-red-500">1/5</span>
+                    </div>
+                    <div class="flex items-center space-x-1 text-blue-700">
+                        <span>⏱️ <ruby>時<rt>じ</rt></ruby><ruby>間<rt>かん</rt></ruby>:</span>
+                        <span id="timer-display" class="w-10 text-right">0</span>
+                        <span><ruby>秒<rt>びょう</rt></ruby></span>
+                    </div>
+                    <div class="flex items-center space-x-1 text-pink-600">
+                        <span>❌ ミス:</span>
+                        <span id="miss-display" class="w-8 text-right">0</span>
+                        <span><ruby>回<rt>かい</rt></ruby></span>
+                    </div>
+                </div>
+
+                <!-- お題カード (伸縮可能・高さ自動調整) -->
+                <div class="flex-grow my-2 bg-sky-50 rounded-2xl border-2 border-sky-300 flex flex-col justify-center items-center p-2 relative shadow-inner overflow-hidden">
+                    <div id="word-emoji" class="text-4xl sm:text-5xl md:text-6xl animate-bounce mb-1">🍎</div>
+                    
+                    <!-- 漢字＋ルビ表示 -->
+                    <div id="word-kanji-container" class="text-3xl sm:text-4xl md:text-5xl font-black text-slate-800 mb-1">
+                        <!-- 動的生成 -->
+                    </div>
+
+                    <!-- ローマ字ガイド -->
+                    <div id="word-romaji-container" class="text-2xl sm:text-3xl md:text-4xl font-mono font-black tracking-wider text-sky-600">
+                        <!-- 動的生成 -->
+                    </div>
+                </div>
+
+                <!-- 指の指示メッセージ -->
+                <div class="bg-amber-100 rounded-xl p-1.5 border-2 border-amber-300 text-center shrink-0 mb-2">
+                    <p id="finger-instruction" class="text-base sm:text-lg md:text-xl font-black text-amber-900">
+                        <!-- 動的にルビ付きテキストを更新 -->
+                    </p>
+                </div>
+
+                <!-- キーボード & 両手エリア (コンパクト配置) -->
+                <div class="bg-slate-100 p-2 rounded-2xl border-2 border-slate-300 shadow-md shrink-0 space-y-2">
+                    
+                    <!-- QWERTY キーボード -->
+                    <div id="keyboard-container" class="w-full max-w-2xl mx-auto">
+                        <!-- JSで生成 -->
+                    </div>
+
+                    <!-- 両手SVG -->
+                    <div class="flex justify-center items-center gap-6 pt-1 border-t border-slate-200">
+                        <div class="text-center">
+                            <div class="font-black text-xs md:text-sm text-emerald-800"><ruby>左<rt>ひだり</rt></ruby><ruby>手<rt>て</rt></ruby></div>
+                            <svg id="left-hand-svg" viewBox="0 0 200 160" class="h-16 sm:h-20 md:h-24 w-auto mx-auto">
+                                <path d="M 40 90 Q 30 150 100 150 Q 150 150 150 90 Z" fill="#FFE0BD" stroke="#D4A373" stroke-width="3"/>
+                                <rect id="hand-left-pinky" x="25" y="35" width="22" height="60" rx="11" fill="#FFE0BD" stroke="#D4A373" stroke-width="2"/>
+                                <rect id="hand-left-ring" x="52" y="15" width="22" height="80" rx="11" fill="#FFE0BD" stroke="#D4A373" stroke-width="2"/>
+                                <rect id="hand-left-middle" x="80" y="5" width="22" height="90" rx="11" fill="#FFE0BD" stroke="#D4A373" stroke-width="2"/>
+                                <rect id="hand-left-index" x="108" y="15" width="22" height="80" rx="11" fill="#FFE0BD" stroke="#D4A373" stroke-width="2"/>
+                                <rect id="hand-left-thumb" x="135" y="65" width="22" height="55" rx="11" fill="#FFE0BD" stroke="#D4A373" stroke-width="2" transform="rotate(-30 145 95)"/>
+                            </svg>
+                        </div>
+
+                        <div class="text-center">
+                            <div class="font-black text-xs md:text-sm text-emerald-800"><ruby>右<rt>みぎ</rt></ruby><ruby>手<rt>て</rt></ruby></div>
+                            <svg id="right-hand-svg" viewBox="0 0 200 160" class="h-16 sm:h-20 md:h-24 w-auto mx-auto">
+                                <path d="M 50 90 Q 50 150 100 150 Q 170 150 160 90 Z" fill="#FFE0BD" stroke="#D4A373" stroke-width="3"/>
+                                <rect id="hand-right-thumb" x="43" y="65" width="22" height="55" rx="11" fill="#FFE0BD" stroke="#D4A373" stroke-width="2" transform="rotate(30 53 95)"/>
+                                <rect id="hand-right-index" x="70" y="15" width="22" height="80" rx="11" fill="#FFE0BD" stroke="#D4A373" stroke-width="2"/>
+                                <rect id="hand-right-middle" x="98" y="5" width="22" height="90" rx="11" fill="#FFE0BD" stroke="#D4A373" stroke-width="2"/>
+                                <rect id="hand-right-ring" x="126" y="15" width="22" height="80" rx="11" fill="#FFE0BD" stroke="#D4A373" stroke-width="2"/>
+                                <rect id="hand-right-pinky" x="153" y="35" width="22" height="60" rx="11" fill="#FFE0BD" stroke="#D4A373" stroke-width="2"/>
+                            </svg>
+                        </div>
+                    </div>
+
+                </div>
+
+            </div>
+
+            <!-- 3. 結果画面 -->
+            <div id="result-screen" class="hidden bg-white rounded-3xl p-4 md:p-8 border-4 border-yellow-300 shadow-xl h-full flex flex-col justify-between text-center">
+                <div class="space-y-1">
+                    <h1 class="text-3xl md:text-5xl font-black text-yellow-500 tracking-wider">🎉 クリア！おめでとう！ 🎉</h1>
+                    <p class="text-lg md:text-2xl font-bold text-slate-600">よく がんばったね！</p>
+                </div>
+
+                <!-- 獲得メダル -->
+                <div class="bg-amber-100 border-2 border-amber-300 rounded-3xl p-4 my-auto max-w-sm mx-auto space-y-2">
+                    <div id="result-medal-icon" class="text-7xl md:text-8xl animate-bounce">🥇</div>
+                    <div id="result-medal-title" class="text-2xl md:text-3xl font-black text-amber-800">
+                        <!-- JS挿入 -->
+                    </div>
+                </div>
+
+                <!-- スコア詳細 -->
+                <div class="grid grid-cols-2 gap-3 max-w-sm mx-auto text-lg md:text-2xl font-black my-auto">
+                    <div class="bg-blue-50 border-2 border-blue-200 p-3 rounded-2xl text-blue-800">
+                        <div>⏱️ <ruby>時<rt>じ</rt></ruby><ruby>間<rt>かん</rt></ruby></div>
+                        <div id="result-time" class="text-2xl md:text-4xl text-blue-600 mt-1">12 <ruby>秒<rt>びょう</rt></ruby></div>
+                    </div>
+                    <div class="bg-pink-50 border-2 border-pink-200 p-3 rounded-2xl text-pink-800">
+                        <div>❌ ミス</div>
+                        <div id="result-miss" class="text-2xl md:text-4xl text-pink-600 mt-1">0 <ruby>回<rt>かい</rt></ruby></div>
+                    </div>
+                </div>
+
+                <!-- アクションボタン -->
+                <div class="flex justify-center gap-3 pt-2">
+                    <button onclick="startGame()" class="bg-green-500 hover:bg-green-600 text-white font-black text-xl md:text-2xl py-3 px-6 rounded-2xl border-b-4 border-green-700 shadow-lg transition transform active:scale-95">
+                        🔄 もう<ruby>一<rt>いち</rt></ruby><ruby>度<rt>ど</rt></ruby>
+                    </button>
+                    <button onclick="showScreen('title-screen')" class="bg-yellow-400 hover:bg-yellow-500 text-yellow-950 font-black text-xl md:text-2xl py-3 px-6 rounded-2xl border-b-4 border-yellow-600 shadow-lg transition transform active:scale-95">
+                        🏠 メニューへ
+                    </button>
+                </div>
+            </div>
+
+            <!-- 4. メダルコレクション画面 -->
+            <div id="medal-screen" class="hidden bg-white rounded-3xl p-4 md:p-6 border-4 border-yellow-300 shadow-xl h-full flex flex-col justify-between text-center">
+                <div class="space-y-1">
+                    <h1 class="text-2xl md:text-4xl font-black text-yellow-600">🥇 メダル コレクション 🥇</h1>
+                    <p class="text-base md:text-xl font-bold text-slate-600">あつめた メダルを <ruby>見<rt>み</rt></ruby>てみよう！</p>
+                </div>
+
+                <!-- メダルグリッド -->
+                <div id="medal-grid" class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3 my-auto overflow-y-auto max-h-[60vh] p-2">
+                    <!-- JS生成 -->
+                </div>
+
+                <div class="pt-2">
+                    <button onclick="showScreen('title-screen')" class="bg-yellow-400 hover:bg-yellow-500 text-yellow-950 font-black text-xl md:text-2xl py-3 px-8 rounded-2xl border-b-4 border-yellow-600 shadow-lg transition transform active:scale-95">
+                        🏠 メニューへ <ruby>戻<rt>もど</rt></ruby>る
+                    </button>
+                </div>
+            </div>
+
+            <!-- 5. 先生用ダッシュボード画面 -->
+            <div id="teacher-screen" class="hidden bg-white rounded-3xl p-4 md:p-6 border-4 border-purple-400 shadow-xl h-full flex flex-col justify-between">
+                <div class="flex flex-col md:flex-row justify-between md:items-center bg-purple-100 rounded-2xl p-3 border-2 border-purple-300 shrink-0 gap-2">
+                    <div class="flex items-center space-x-2">
+                        <span class="text-3xl">👨‍🏫</span>
+                        <div>
+                            <h1 class="text-lg md:text-xl font-black text-purple-900">先生用 学習データ管理画面</h1>
+                            <p class="text-xs font-bold text-purple-700">児童全員の学習回数や獲得メダルが確認できます</p>
+                        </div>
+                    </div>
+
+                    <!-- クラス絞り込みフィルター -->
+                    <div class="flex items-center space-x-2 bg-white px-3 py-1.5 rounded-xl border-2 border-purple-300">
+                        <label class="text-xs md:text-sm font-black text-purple-900">クラス:</label>
+                        <select id="teacher-class-filter" onchange="filterTeacherRecords()" class="bg-transparent font-black text-purple-900 text-xs md:text-sm focus:outline-none">
+                            <option value="all">すべてのクラス</option>
+                        </select>
+                    </div>
+
+                    <button onclick="showScreen('title-screen')" class="bg-purple-600 hover:bg-purple-700 text-white font-black px-4 py-1.5 rounded-xl shadow transition text-xs md:text-sm self-end md:self-auto">
+                        戻る
+                    </button>
+                </div>
+
+                <!-- 児童学習記録テーブル -->
+                <div class="flex-grow my-3 overflow-y-auto rounded-2xl border-2 border-purple-200 bg-slate-50 p-2">
+                    <table class="w-full text-left border-collapse">
+                        <thead>
+                            <tr class="bg-purple-200 text-purple-900 font-black text-xs md:text-sm border-b-2 border-purple-300">
+                                <th class="p-2 rounded-tl-xl">クラス</th>
+                                <th class="p-2">なまえ</th>
+                                <th class="p-2 text-center">プレイ回数</th>
+                                <th class="p-2 text-center">メダル(金/銀/銅)</th>
+                                <th class="p-2 text-center">最終学習日時</th>
+                            </tr>
+                        </thead>
+                        <tbody id="teacher-records-tbody" class="divide-y divide-slate-200 text-xs md:text-sm font-bold text-slate-700">
+                            <!-- JSでリアルタイム自動生成 -->
+                        </tbody>
+                    </table>
+                </div>
+
+                <div class="text-center text-xs text-slate-500 font-bold shrink-0">
+                    ※児童がクリアするとデータは自動的に更新されます
+                </div>
+            </div>
+
+        </div>
+    </main>
+
+    <!-- Firebase SDK (モジュール読み込み) & JavaScript ロジック -->
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
+        import { getAuth, signInAnonymously, signInWithCustomToken } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+        import { getFirestore, doc, setDoc, collection, onSnapshot } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+
+        // Firebase 初期化環境設定
+        const appId = typeof __app_id !== 'undefined' ? __app_id : 'typing-kids-app';
+        const firebaseConfig = typeof __firebase_config !== 'undefined' ? JSON.parse(__firebase_config) : {
+            apiKey: "dummy", authDomain: "dummy", projectId: "dummy", storageBucket: "dummy", messagingSenderId: "dummy", appId: "dummy"
+        };
+
+        let db = null;
+        let auth = null;
+        let currentUser = null;
+
+        async function initCloudStorage() {
+            try {
+                const app = initializeApp(firebaseConfig);
+                auth = getAuth(app);
+                db = getFirestore(app);
+
+                if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
+                    await signInWithCustomToken(auth, __initial_auth_token);
+                } else {
+                    await signInAnonymously(auth);
+                }
+                currentUser = auth.currentUser;
+            } catch(e) {
+                console.error("Cloud storage initialization failed:", e);
+            }
+        }
+
+        /* ----------------------------------------------------
+           1. 五十音単字データ（初級：順番練習用）
+        ---------------------------------------------------- */
+        const GOJUON_DATA = {
+            a: [
+                { kanji: "あ", kana: "あ", romaji: "A", emoji: "🍎", ruby: "あ" },
+                { kanji: "い", kana: "い", romaji: "I", emoji: "🐶", ruby: "い" },
+                { kanji: "う", kana: "う", romaji: "U", emoji: "🐰", ruby: "う" },
+                { kanji: "え", kana: "え", romaji: "E", emoji: "✏️", ruby: "え" },
+                { kanji: "お", kana: "お", romaji: "O", emoji: "🍙", ruby: "お" }
+            ],
+            ka: [
+                { kanji: "か", kana: "か", romaji: "KA", emoji: "🦛", ruby: "か" },
+                { kanji: "き", kana: "き", romaji: "KI", emoji: "🌳", ruby: "き" },
+                { kanji: "く", kana: "く", romaji: "KU", emoji: "🐻", ruby: "く" },
+                { kanji: "け", kana: "け", romaji: "KE", emoji: "🧶", ruby: "け" },
+                { kanji: "こ", kana: "こ", romaji: "KO", emoji: "🪙", ruby: "こ" }
+            ],
+            sa: [
+                { kanji: "さ", kana: "さ", romaji: "SA", emoji: "🐟", ruby: "さ" },
+                { kanji: "し", kana: "し", romaji: "SI", emoji: "鹿", ruby: "し" },
+                { kanji: "す", kana: "す", romaji: "SU", emoji: "🍣", ruby: "す" },
+                { kanji: "せ", kana: "せ", romaji: "SE", emoji: "👕", ruby: "せ" },
+                { kanji: "そ", kana: "そ", romaji: "SO", emoji: "🌌", ruby: "そ" }
+            ],
+            ta: [
+                { kanji: "た", kana: "た", romaji: "TA", emoji: "🐙", ruby: "た" },
+                { kanji: "ち", kana: "ち", romaji: "TI", emoji: "🧀", ruby: "ち" },
+                { kanji: "つ", kana: "つ", romaji: "TU", emoji: "🌙", ruby: "つ" },
+                { kanji: "て", kana: "て", romaji: "TE", emoji: "✋", ruby: "て" },
+                { kanji: "と", kana: "と", romaji: "TO", emoji: "🐯", ruby: "と" }
+            ],
+            na: [
+                { kanji: "な", kana: "な", romaji: "NA", emoji: "🍆", ruby: "な" },
+                { kanji: "に", kana: "に", romaji: "NI", emoji: "🥕", ruby: "に" },
+                { kanji: "ぬ", kana: "ぬ", romaji: "NU", emoji: "🧸", ruby: "ぬ" },
+                { kanji: "ね", kana: "ね", romaji: "NE", emoji: "🐱", ruby: "ね" },
+                { kanji: "の", kana: "の", romaji: "NO", emoji: "🚗", ruby: "の" }
+            ],
+            ha: [
+                { kanji: "は", kana: "は", romaji: "HA", emoji: "🌸", ruby: "は" },
+                { kanji: "ひ", kana: "ひ", romaji: "HI", emoji: "🐥", ruby: "ひ" },
+                { kanji: "ふ", kana: "ふ", romaji: "HU", emoji: "🎈", ruby: "ふ" },
+                { kanji: "へ", kana: "へ", romaji: "HE", emoji: "🐍", ruby: "へ" },
+                { kanji: "ほ", kana: "ほ", romaji: "HO", emoji: "⭐", ruby: "ほ" }
+            ],
+            ma: [
+                { kanji: "ま", kana: "ま", romaji: "MA", emoji: "🌰", ruby: "ま" },
+                { kanji: "み", kana: "み", romaji: "MI", emoji: "🍊", ruby: "み" },
+                { kanji: "む", kana: "む", romaji: "MU", emoji: "🐛", ruby: "む" },
+                { kanji: "め", kana: "め", romaji: "ME", emoji: "👀", ruby: "め" },
+                { kanji: "も", kana: "も", romaji: "MO", emoji: "🍑", ruby: "も" }
+            ],
+            ya: [
+                { kanji: "や", kana: "や", romaji: "YA", emoji: "🏹", ruby: "や" },
+                { kanji: "ゆ", kana: "ゆ", romaji: "YU", emoji: "♨️", ruby: "ゆ" },
+                { kanji: "よ", kana: "よ", romaji: "YO", emoji: "⛵", ruby: "よ" }
+            ],
+            ra: [
+                { kanji: "ら", kana: "ら", romaji: "RA", emoji: "📻", ruby: "ら" },
+                { kanji: "り", kana: "り", romaji: "RI", emoji: "🍎", ruby: "り" },
+                { kanji: "る", kana: "る", romaji: "RU", emoji: "💎", ruby: "る" },
+                { kanji: "れ", kana: "れ", romaji: "RE", emoji: "🍋", ruby: "れ" },
+                { kanji: "ろ", kana: "ろ", romaji: "RO", emoji: "🤖", ruby: "ろ" }
+            ],
+            wa: [
+                { kanji: "わ", kana: "わ", romaji: "WA", emoji: "🐊", ruby: "わ" },
+                { kanji: "を", kana: "を", romaji: "WO", emoji: "🪢", ruby: "を" },
+                { kanji: "ん", kana: "ん", romaji: "NN", emoji: "🔔", ruby: "ん" }
+            ]
+        };
+
+        /* ----------------------------------------------------
+           2. 中級・上級・鬼級・神級 単語データセット
+        ---------------------------------------------------- */
+        const WORD_DATA = {
+            a: {
+                name: "あ<ruby>行<rt>ぎょう</rt></ruby>",
+                medium: [
+                    { kanji: "赤", kana: "あか", romaji: "AKA", emoji: "🔴", ruby: "<ruby>赤<rt>あか</rt></ruby>" },
+                    { kanji: "雨", kana: "あめ", romaji: "AME", emoji: "🌧️", ruby: "<ruby>雨<rt>あめ</rt></ruby>" },
+                    { kanji: "犬", kana: "いぬ", romaji: "INU", emoji: "🐶", ruby: "<ruby>犬<rt>いぬ</rt></ruby>" },
+                    { kanji: "家", kana: "いえ", romaji: "IE", emoji: "🏠", ruby: "<ruby>家<rt>いえ</rt></ruby>" },
+                    { kanji: "海", kana: "うみ", romaji: "UMI", emoji: "🌊", ruby: "<ruby>海<rt>うみ</rt></ruby>" },
+                    { kanji: "青", kana: "あお", romaji: "AO", emoji: "🔵", ruby: "<ruby>青<rt>あお</rt></ruby>" },
+                    { kanji: "池", kana: "いけ", romaji: "IKE", emoji: "🏞️", ruby: "<ruby>池<rt>いけ</rt></ruby>" }
+                ],
+                hard: [
+                    { kanji: "朝顔", kana: "あさがお", romaji: "ASAGAO", emoji: "🌺", ruby: "<ruby>朝<rt>あさ</rt></ruby><ruby>顔<rt>がお</rt></ruby>" },
+                    { kanji: "紫陽花", kana: "あじさい", romaji: "AJISAI", emoji: "🌸", ruby: "<ruby>紫陽花<rt>あじさい</rt></ruby>" },
+                    { kanji: "雨上がり", kana: "あめあがり", romaji: "AMEAGARI", emoji: "🌈", ruby: "<ruby>雨<rt>あめ</rt></ruby>あがり" },
+                    { kanji: "青い空", kana: "あおいそら", romaji: "AOISORA", emoji: "☀️", ruby: "<ruby>青<rt>あお</rt></ruby>い<ruby>空<rt>そら</rt></ruby>" },
+                    { kanji: "糸電話", kana: "いとでんわ", romaji: "ITODENWA", emoji: "📞", ruby: "<ruby>糸<rt>いと</rt></ruby><ruby>電<rt>でん</rt></ruby><ruby>話<rt>わ</rt></ruby>" }
+                ],
+                oni: [
+                    { kanji: "朝顔の花", kana: "あさがおのはな", romaji: "ASAGAONOHANA", emoji: "🌺", ruby: "<ruby>朝<rt>あさ</rt></ruby><ruby>顔<rt>がお</rt></ruby>の<ruby>花<rt>はな</rt></ruby>" },
+                    { kanji: "イチゴ味の飴", kana: "いちごあじのあめ", romaji: "ITIGOAJINOAME", emoji: "🍬", ruby: "イチゴ<ruby>味<rt>あじ</rt></ruby>の<ruby>飴<rt>あめ</rt></ruby>" },
+                    { kanji: "雨の日のお散歩", kana: "あめのひのおさんぽ", romaji: "AMENOHINOOSANPO", emoji: "☔", ruby: "<ruby>雨<rt>あめ</rt></ruby>の<ruby>日<rt>ひ</rt></ruby>のお<ruby>散<rt>さん</rt></ruby><ruby>歩<rt>ぽ</rt></ruby>" },
+                    { kanji: "青い空とおひさま", kana: "あおいそらとおひさま", romaji: "AOISORATOOHISAMA", emoji: "🌞", ruby: "<ruby>青<rt>あお</rt></ruby>い<ruby>空<rt>そら</rt></ruby>とおひさま" }
+                ],
+                kami: [
+                    { kanji: "アイスクリーム", kana: "あいすくりーむ", romaji: "AISUKURI-MU", emoji: "🍦", ruby: "アイスクリーム" },
+                    { kanji: "宇宙ロケット", kana: "うちゅうろけっと", romaji: "UTYUUROKETTO", emoji: "🚀", ruby: "<ruby>宇<rt>う</rt></ruby><ruby>宙<rt>ちゅう</rt></ruby>ロケット" },
+                    { kanji: "宇宙人", kana: "うちゅうじん", romaji: "UTYUUJIN", emoji: "👽", ruby: "<ruby>宇<rt>う</rt></ruby><ruby>宙<rt>ちゅう</rt></ruby><ruby>人<rt>じん</rt></ruby>" }
+                ]
+            },
+            ka: {
+                name: "か<ruby>行<rt>ぎょう</rt></ruby>",
+                medium: [
+                    { kanji: "傘", kana: "かさ", romaji: "KASA", emoji: "☂️", ruby: "<ruby>傘<rt>かさ</rt></ruby>" },
+                    { kanji: "川", kana: "かわ", romaji: "KAWA", emoji: "🏞️", ruby: "<ruby>川<rt>かわ</rt></ruby>" },
+                    { kanji: "靴", kana: "くつ", romaji: "KUTU", emoji: "👟", ruby: "<ruby>靴<rt>くつ</rt></ruby>" },
+                    { kanji: "亀", kana: "かめ", romaji: "KAME", emoji: "🐢", ruby: "<ruby>亀<rt>かめ</rt></ruby>" },
+                    { kanji: "貝", kana: "かい", romaji: "KAI", emoji: "🐚", ruby: "<ruby>貝<rt>かい</rt></ruby>" }
+                ],
+                hard: [
+                    { kanji: "川遊び", kana: "かわあそび", romaji: "KAWAASOBI", emoji: "🏊", ruby: "<ruby>川<rt>かわ</rt></ruby><ruby>遊<rt>あそ</rt></ruby>び" },
+                    { kanji: "傘立て", kana: "かさたて", romaji: "KASATATE", emoji: "☂️", ruby: "<ruby>傘<rt>かさ</rt></ruby>たて" },
+                    { kanji: "かまきり", kana: "かまきり", romaji: "KAMAKIRI", emoji: "🦗", ruby: "かまきり" },
+                    { kanji: "こいのぼり", kana: "こいのぼり", romaji: "KOINOBORI", emoji: "🎏", ruby: "こいのぼり" }
+                ],
+                oni: [
+                    { kanji: "カラフルな風船", kana: "からふるなふうせん", romaji: "KARAHURUNAHUUSEN", emoji: "🎈", ruby: "カラフルな<ruby>風<rt>ふう</rt></ruby><ruby>船<rt>せん</rt></ruby>" },
+                    { kanji: "かわいい子犬", kana: "かわいいこいぬ", romaji: "KAWAIIKOINU", emoji: "🐶", ruby: "かわいい<ruby>子<rt>こ</rt></ruby><ruby>犬<rt>いぬ</rt></ruby>" },
+                    { kanji: "風の強い日", kana: "かぜのつよいひ", romaji: "KAZENOTSUYOIHI", emoji: "🍃", ruby: "<ruby>風<rt>かぜ</rt></ruby>の<ruby>強<rt>つよ</rt></ruby>い<ruby>日<rt>ひ</rt></ruby>" }
+                ],
+                kami: [
+                    { kanji: "観覧車", kana: "かんらんしゃ", romaji: "KANRANSYA", emoji: "🎡", ruby: "<ruby>観<rt>かん</rt></ruby><ruby>覧<rt>らん</rt></ruby><ruby>車<rt>しゃ</rt></ruby>" },
+                    { kanji: "教科書", kana: "きょうかしょ", romaji: "KYOUKASYO", emoji: "📚", ruby: "<ruby>教<rt>きょう</rt></ruby><ruby>科<rt>か</rt></ruby><ruby>書<rt>しょ</rt></ruby>" },
+                    { kanji: "河童", kana: "かっぱ", romaji: "KAPPA", emoji: "🥒", ruby: "<ruby>河<rt>かっ</rt></ruby><ruby>童<rt>ぱ</rt></ruby>" },
+                    { kanji: "ケーキ", kana: "けーき", romaji: "KE-KI", emoji: "🍰", ruby: "ケーキ" },
+                    { kanji: "キャンプ", kana: "きゃんぷ", romaji: "KYANPU", emoji: "⛺", ruby: "キャンプ" }
+                ]
+            },
+            sa: {
+                name: "さ<ruby>行<rt>ぎょう</rt></ruby>",
+                medium: [
+                    { kanji: "魚", kana: "さかな", romaji: "SAKANA", emoji: "🐟", ruby: "<ruby>魚<rt>さかな</rt></ruby>" },
+                    { kanji: "寿司", kana: "すし", romaji: "SUSI", emoji: "🍣", ruby: "<ruby>寿<rt>す</rt></ruby><ruby>司<rt>し</rt></ruby>" },
+                    { kanji: "鹿", kana: "しか", romaji: "SIKA", emoji: "🦌", ruby: "<ruby>鹿<rt>しか</rt></ruby>" },
+                    { kanji: "空", kana: "そら", romaji: "SORA", emoji: "🌤️", ruby: "<ruby>空<rt>そら</rt></ruby>" }
+                ],
+                hard: [
+                    { kanji: "新幹線", kana: "しんかんせん", romaji: "SINKANSEN", emoji: "🚅", ruby: "<ruby>新<rt>しん</rt></ruby><ruby>幹<rt>かん</rt></ruby><ruby>線<rt>せん</rt></ruby>" },
+                    { kanji: "水族館", kana: "すいぞくかん", romaji: "SUIZOKUKAN", emoji: "🐬", ruby: "<ruby>水<rt>すい</rt></ruby><ruby>族<rt>ぞく</rt></ruby><ruby>館<rt>かん</rt></ruby>" },
+                    { kanji: "さくらんぼ", kana: "さくらんぼ", romaji: "SAKURANBO", emoji: "🍒", ruby: "さくらんぼ" },
+                    { kanji: "すいかわり", kana: "すいかわり", romaji: "SUIKAWARI", emoji: "🍉", ruby: "すいかわり" }
+                ],
+                oni: [
+                    { kanji: "空飛ぶ円盤", kana: "そらとぶえんばん", romaji: "SORATOBUENBAN", emoji: "🛸", ruby: "<ruby>空<rt>そら</rt></ruby><ruby>飛<rt>と</rt></ruby>ぶ<ruby>円<rt>えん</rt></ruby><ruby>盤<rt>ばん</rt></ruby>" },
+                    { kanji: "お刺身の盛り合わせ", kana: "おさしみのもりあわせ", romaji: "OSASIMINOMORIAWASE", emoji: "🍣", ruby: "お<ruby>刺<rt>さ</rt></ruby><ruby>身<rt>しみ</rt></ruby>の<ruby>盛<rt>も</rt></ruby>り<ruby>合<rt>あ</rt></ruby>わせ" },
+                    { kanji: "さくらんぼの季節", kana: "さくらんぼのきせつ", romaji: "SAKURANBONOKISETU", emoji: "🍒", ruby: "さくらんぼの<ruby>季<rt>き</rt></ruby><ruby>節<rt>せつ</rt></ruby>" }
+                ],
+                kami: [
+                    { kanji: "写真", kana: "しゃしん", romaji: "SYASIN", emoji: "📷", ruby: "<ruby>写<rt>しゃ</rt></ruby><ruby>真<rt>しん</rt></ruby>" },
+                    { kanji: "サッカー", kana: "さっかー", romaji: "SAKKA-", emoji: "⚽", ruby: "サッカー" },
+                    { kanji: "ジュース", kana: "じゅーす", romaji: "JYU-SU", emoji: "🧃", ruby: "ジュース" },
+                    { kanji: "雑誌", kana: "ざっし", romaji: "ZASSI", emoji: "📖", ruby: "<ruby>雑<rt>ざっ</rt></ruby><ruby>誌<rt>し</rt></ruby>" }
+                ]
+            },
+            ta: {
+                name: "た<ruby>行<rt>ぎょう</rt></ruby>",
+                medium: [
+                    { kanji: "蛸", kana: "たこ", romaji: "TAKO", emoji: "🐙", ruby: "<ruby>蛸<rt>たこ</rt></ruby>" },
+                    { kanji: "月", kana: "つき", romaji: "TUKI", emoji: "🌙", ruby: "<ruby>月<rt>つき</rt></ruby>" },
+                    { kanji: "虎", kana: "とら", romaji: "TORA", emoji: "🐯", ruby: "<ruby>虎<rt>とら</rt></ruby>" },
+                    { kanji: "太鼓", kana: "たいこ", romaji: "TAIKO", emoji: "🥁", ruby: "<ruby>太<rt>たい</rt></ruby><ruby>鼓<rt>こ</rt></ruby>" }
+                ],
+                hard: [
+                    { kanji: "竹の子", kana: "たけのこ", romaji: "TAKENOKO", emoji: "🎍", ruby: "<ruby>竹<rt>たけ</rt></ruby>の<ruby>子<rt>こ</rt></ruby>" },
+                    { kanji: "宝物", kana: "たからもの", romaji: "TAKARAMONO", emoji: "💎", ruby: "<ruby>宝<rt>たから</rt></ruby><ruby>物<rt>もの</rt></ruby>" },
+                    { kanji: "たまねぎ", kana: "たまねぎ", romaji: "TAMANEGI", emoji: "🧅", ruby: "たまねぎ" }
+                ],
+                oni: [
+                    { kanji: "太陽とひまわり", kana: "たいようとひまわり", romaji: "TAIYOUTOHIMAWARI", emoji: "🌻", ruby: "<ruby>太<rt>たい</rt></ruby><ruby>陽<rt>よう</rt></ruby>とひまわり" },
+                    { kanji: "たのしいお祭り", kana: "たのしいおまつり", romaji: "TANOSIIOMATURI", emoji: "🍧", ruby: "たのしいお<ruby>祭<rt>まつ</rt></ruby>り" },
+                    { kanji: "宝の島へでかけよう", kana: "たからのしまへでかけよう", romaji: "TAKARANOSIMAHEADEKAKEYOU", emoji: "🏴‍☠️", ruby: "<ruby>宝<rt>たから</rt></ruby>の<ruby>島<rt>しま</rt></ruby>へでかけよう" }
+                ],
+                kami: [
+                    { kanji: "チョコレート", kana: "ちょこれーと", romaji: "TYOKORE-TO", emoji: "🍫", ruby: "チョコレート" },
+                    { kanji: "チケット", kana: "ちけっと", romaji: "TIKETTO", emoji: "🎟️", ruby: "チケット" },
+                    { kanji: "図書館", kana: "としょかん", romaji: "TOSYOKAN", emoji: "📚", ruby: "<ruby>図<rt>と</rt></ruby><ruby>書<rt>しょ</rt></ruby><ruby>館<rt>かん</rt></ruby>" }
+                ]
+            },
+            na: {
+                name: "な<ruby>行<rt>ぎょう</rt></ruby>",
+                medium: [
+                    { kanji: "茄子", kana: "なす", romaji: "NASU", emoji: "🍆", ruby: "<ruby>茄子<rt>なす</rt></ruby>" },
+                    { kanji: "猫", kana: "ねこ", romaji: "NEKO", emoji: "🐱", ruby: "<ruby>猫<rt>ねこ</rt></ruby>" },
+                    { kanji: "虹", kana: "にじ", romaji: "NIJI", emoji: "🌈", ruby: "<ruby>虹<rt>にじ</rt></ruby>" },
+                    { kanji: "波", kana: "なみ", romaji: "NAMI", emoji: "🌊", ruby: "<ruby>波<rt>なみ</rt></ruby>" }
+                ],
+                hard: [
+                    { kanji: "夏休み", kana: "なつやすみ", romaji: "NATUYASUMI", emoji: "🌻", ruby: "<ruby>夏<rt>なつ</rt></ruby><ruby>休<rt>やす</rt></ruby>み" },
+                    { kanji: "七つの海", kana: "ななつのうみ", romaji: "NANATSUNOUMI", emoji: "🌊", ruby: "<ruby>七<rt>なな</rt></ruby>つの<ruby>海<rt>うみ</rt></ruby>" },
+                    { kanji: "野原の動物", kana: "のはらのどうぶつ", romaji: "NOHARANODOUBUTU", emoji: "🐇", ruby: "<ruby>野<rt>の</rt></ruby><ruby>原<rt>はら</rt></ruby>の<ruby>動<rt>どう</rt></ruby><ruby>物<rt>ぶつ</rt></ruby>" }
+                ],
+                oni: [
+                    { kanji: "夏休みのおでかけ", kana: "なつやすみのおでかけ", romaji: "NATUYASUMINOODEKAKE", emoji: "🏖️", ruby: "<ruby>夏<rt>なつ</rt></ruby><ruby>休<rt>やす</rt></ruby>みのおでかけ" },
+                    { kanji: "七色の虹", kana: "なないろのにじ", romaji: "NANAIRONONIJI", emoji: "🌈", ruby: "<ruby>七<rt>なな</rt></ruby><ruby>色<rt>いろ</rt></ruby>の<ruby>虹<rt>にじ</rt></ruby>" },
+                    { kanji: "野原でおひるね", kana: "のはらでおひるね", romaji: "NOHARADEOHIRUNE", emoji: "💤", ruby: "<ruby>野<rt>の</rt></ruby><ruby>原<rt>はら</rt></ruby>でおひるね" }
+                ],
+                kami: [
+                    { kanji: "人形劇", kana: "にんぎょうげき", romaji: "NINGYOUGEKI", emoji: "🎭", ruby: "<ruby>人<rt>にん</rt></ruby><ruby>形<rt>ぎょう</rt></ruby><ruby>劇<rt>げき</rt></ruby>" },
+                    { kanji: "納豆", kana: "なっとう", romaji: "NATTOU", emoji: "🥢", ruby: "<ruby>納<rt>なっ</rt></ruby><ruby>豆<rt>とう</rt></ruby>" },
+                    { kanji: "ノート", kana: "のーと", romaji: "NO-TO", emoji: "📓", ruby: "ノート" }
+                ]
+            },
+            ha: {
+                name: "は<ruby>行<rt>ぎょう</rt></ruby>",
+                medium: [
+                    { kanji: "花", kana: "はな", romaji: "HANA", emoji: "🌸", ruby: "<ruby>花<rt>はな</rt></ruby>" },
+                    { kanji: "星", kana: "ほし", romaji: "HOSI", emoji: "⭐", ruby: "<ruby>星<rt>ほし</rt></ruby>" },
+                    { kanji: "舟", kana: "ふね", romaji: "HUNE", emoji: "⛵", ruby: "<ruby>舟<rt>ふね</rt></ruby>" },
+                    { kanji: "蜂", kana: "はち", romaji: "HATI", emoji: "🐝", ruby: "<ruby>蜂<rt>はち</rt></ruby>" }
+                ],
+                hard: [
+                    { kanji: "飛行機", kana: "ひこうき", romaji: "HIKOUKI", emoji: "✈️", ruby: "<ruby>飛<rt>ひ</rt></ruby><ruby>行<rt>こう</rt></ruby><ruby>機<rt>き</rt></ruby>" },
+                    { kanji: "花火", kana: "はなび", romaji: "HANABI", emoji: "🎆", ruby: "<ruby>花<rt>はな</rt></ruby><ruby>火<rt>び</rt></ruby>" },
+                    { kanji: "はちみつ", kana: "はちみつ", romaji: "HATIMITU", emoji: "🍯", ruby: "はちみつ" }
+                ],
+                oni: [
+                    { kanji: "花火大会の夜", kana: "はなびたいかいのよる", romaji: "HANABITAIKAINOYORU", emoji: "🎆", ruby: "<ruby>花<rt>はな</rt></ruby><ruby>火<rt>び</rt></ruby><ruby>大<rt>たい</rt></ruby><ruby>会<rt>かい</rt></ruby>の<ruby>夜<rt>よる</rt></ruby>" },
+                    { kanji: "星空のお散歩", kana: "ほしぞらのおさんぽ", romaji: "HOSIZORANOOSANPO", emoji: "🌌", ruby: "<ruby>星<rt>ほし</rt></ruby><ruby>空<rt>ぞら</rt></ruby>のお<ruby>散<rt>さん</rt></ruby><ruby>歩<rt>ぽ</rt></ruby>" },
+                    { kanji: "はちみつ入りのパン", kana: "はちみついりのぱん", romaji: "HATIMITUIRINOPAN", emoji: "🍞", ruby: "はちみつ<ruby>入<rt>い</rt></ruby>りのパン" }
+                ],
+                kami: [
+                    { kanji: "葉っぱ", kana: "はっぱ", romaji: "HAPPA", emoji: "🍃", ruby: "<ruby>葉<rt>はっ</rt></ruby>ぱ" },
+                    { kanji: "ヒーロー", kana: "ひーろー", romaji: "HI-RO-", emoji: "🦸", ruby: "ヒーロー" },
+                    { kanji: "百円玉", kana: "ひゃくえんだま", romaji: "HYAKUENDAMA", emoji: "🪙", ruby: "<ruby>百<rt>ひゃく</rt></ruby><ruby>円<rt>えん</rt></ruby><ruby>玉<rt>だま</rt></ruby>" }
+                ]
+            },
+            ma: {
+                name: "ま<ruby>行<rt>ぎょう</rt></ruby>",
+                medium: [
+                    { kanji: "虫", kana: "むし", romaji: "MUSI", emoji: "🐛", ruby: "<ruby>虫<rt>むし</rt></ruby>" },
+                    { kanji: "桃", kana: "もも", romaji: "MOMO", emoji: "🍑", ruby: "<ruby>桃<rt>もも</rt></ruby>" },
+                    { kanji: "豆", kana: "まめ", romaji: "MAME", emoji: "🫛", ruby: "<ruby>豆<rt>まめ</rt></ruby>" },
+                    { kanji: "森", kana: "もり", romaji: "MORI", emoji: "🌳", ruby: "<ruby>森<rt>もり</rt></ruby>" }
+                ],
+                hard: [
+                    { kanji: "魔法使い", kana: "まほうつかい", romaji: "MAHOUTUKAI", emoji: "🧙", ruby: "<ruby>魔<rt>ま</rt></ruby><ruby>法<rt>ほう</rt></ruby><ruby>使<rt>つか</rt></ruby>い" },
+                    { kanji: "まつぼっくり", kana: "まつぼっくり", romaji: "MATUBOKKURI", emoji: "🌲", ruby: "まつぼっくり" },
+                    { kanji: "まんまるお月さま", kana: "まんまるおつきさま", romaji: "MANMARUOTUKISAMA", emoji: "🌕", ruby: "まんまるお<ruby>月<rt>つき</rt></ruby>さま" }
+                ],
+                oni: [
+                    { kanji: "魔法使いの帽子", kana: "まほうつかいのぼうし", romaji: "MAHOUTUKAINOBOUSI", emoji: "🧙", ruby: "<ruby>魔<rt>ま</rt></ruby><ruby>法<rt>ほう</rt></ruby><ruby>使<rt>つか</rt></ruby>いの<ruby>帽<rt>ぼう</rt></ruby><ruby>子<rt>し</rt></ruby>" },
+                    { kanji: "虫めがねで探検", kana: "むしめがねでたんけん", romaji: "MUSIMEGANEDETANKEN", emoji: "🔍", ruby: "<ruby>虫<rt>むし</rt></ruby>めがねで<ruby>探<rt>たん</rt></ruby><ruby>検<rt>けん</rt></ruby>" }
+                ],
+                kami: [
+                    { kanji: "抹茶", kana: "まっちゃ", romaji: "MATTYA", emoji: "🍵", ruby: "<ruby>抹<rt>まっ</rt></ruby><ruby>茶<rt>ちゃ</rt></ruby>" },
+                    { kanji: "ミントチョコ", kana: "みんとちょこ", romaji: "MINTOTYOKO", emoji: "🍫", ruby: "ミントチョコ" }
+                ]
+            },
+            ya: {
+                name: "や<ruby>行<rt>ぎょう</rt></ruby>",
+                medium: [
+                    { kanji: "山", kana: "やま", romaji: "YAMA", emoji: "⛰️", ruby: "<ruby>山<rt>やま</rt></ruby>" },
+                    { kanji: "弓", kana: "ゆみ", romaji: "YUMI", emoji: "🏹", ruby: "<ruby>弓<rt>ゆみ</rt></ruby>" },
+                    { kanji: "雪", kana: "ゆき", romaji: "YUKI", emoji: "❄️", ruby: "<ruby>雪<rt>ゆき</rt></ruby>" }
+                ],
+                hard: [
+                    { kanji: "夕焼け", kana: "ゆうやけ", romaji: "YUUYAKE", emoji: "🌆", ruby: "<ruby>夕<rt>ゆう</rt></ruby><ruby>焼<rt>や</rt></ruby>け" },
+                    { kanji: "やまびこ", kana: "やまびこ", romaji: "YAMABIKO", emoji: "🏔️", ruby: "やまびこ" },
+                    { kanji: "やさしい言葉", kana: "やさしいことば", romaji: "YASASIIKOTOBA", emoji: "💬", ruby: "やさしい<ruby>言<rt>こと</rt></ruby><ruby>葉<rt>ば</rt></ruby>" }
+                ],
+                oni: [
+                    { kanji: "山の上の公園", kana: "やまのうえのこうえん", romaji: "YAMANOUENOKOUEN", emoji: "🏞️", ruby: "<ruby>山<rt>やま</rt></ruby>の<ruby>上<rt>うえ</rt></ruby>の<ruby>公<rt>こう</rt></ruby><ruby>園<rt>えん</rt></ruby>" },
+                    { kanji: "夕やけの帰り道", kana: "ゆうやけのかえりみち", romaji: "YUUYAKENOKAERIMITI", emoji: "🌆", ruby: "<ruby>夕<rt>ゆう</rt></ruby>やけの<ruby>帰<rt>かえ</rt></ruby>り<ruby>道<rt>みち</rt></ruby>" }
+                ],
+                kami: [
+                    { kanji: "野球部", kana: "やきゅうぶ", romaji: "YAKYUUBU", emoji: "⚾", ruby: "<ruby>野<rt>や</rt></ruby><ruby>球<rt>きゅう</rt></ruby><ruby>部<rt>ぶ</rt></ruby>" },
+                    { kanji: "勇者", kana: "ゆうしゃ", romaji: "YUUSYA", emoji: "🗡️", ruby: "<ruby>勇<rt>ゆう</rt></ruby><ruby>者<rt>しゃ</rt></ruby>" }
+                ]
+            },
+            ra: {
+                name: "ら<ruby>行<rt>ぎょう</rt></ruby>",
+                medium: [
+                    { kanji: "栗", kana: "くり", romaji: "KURI", emoji: "🌰", ruby: "<ruby>栗<rt>くり</rt></ruby>" },
+                    { kanji: "陸", kana: "りく", romaji: "RIKU", emoji: "🏃", ruby: "<ruby>陸<rt>りく</rt></ruby>" },
+                    { kanji: "ロバ", kana: "ろば", romaji: "ROBA", emoji: "🫏", ruby: "ロバ" }
+                ],
+                hard: [
+                    { kanji: "ランドセル", kana: "らんどせる", romaji: "RANDOSERU", emoji: "🎒", ruby: "ランドセル" },
+                    { kanji: "りんごの木", kana: "りんごのき", romaji: "RINGONOKI", emoji: "🍎", ruby: "りんごの<ruby>木<rt>き</rt></ruby>" }
+                ],
+                oni: [
+                    { kanji: "ライオンの家族", kana: "らいおんのかぞく", romaji: "RAIONNOKAZOKU", emoji: "🦁", ruby: "ライオンの<ruby>家<rt>か</rt></ruby><ruby>族<rt>ぞく</rt></ruby>" },
+                    { kanji: "ランドセルでおでかけ", kana: "らんどせるでおでかけ", romaji: "RANDOSERUDEODEKAKE", emoji: "🎒", ruby: "ランドセルでおでかけ" }
+                ],
+                kami: [
+                    { kanji: "ラッコ", kana: "らっこ", romaji: "RAKKO", emoji: "🦦", ruby: "ラッコ" },
+                    { kanji: "リュックサック", kana: "りゅっくさっく", romaji: "RYUKKUSAKKU", emoji: "🎒", ruby: "リュックサック" },
+                    { kanji: "ラーメン", kana: "らーめん", romaji: "RA-MEN", emoji: "🍜", ruby: "ラーメン" }
+                ]
+            },
+            wa: {
+                name: "わ<ruby>行<rt>ぎょう</rt></ruby>",
+                medium: [
+                    { kanji: "鰐", kana: "わに", romaji: "WANI", emoji: "🐊", ruby: "<ruby>鰐<rt>わに</rt></ruby>" },
+                    { kanji: "輪投げ", kana: "わなげ", romaji: "WANAGE", emoji: "🎯", ruby: "<ruby>輪<rt>わ</rt></ruby><ruby>投<rt>な</rt></ruby>げ" }
+                ],
+                hard: [
+                    { kanji: "笑い声", kana: "わらいごえ", romaji: "WARAIGOE", emoji: "😊", ruby: "<ruby>笑<rt>わら</rt></ruby>い<ruby>声<rt>ごえ</rt></ruby>" },
+                    { kanji: "わにの家族", kana: "わにのかぞく", romaji: "WANINOKAZOKU", emoji: "🐊", ruby: "わにの<ruby>家<rt>か</rt></ruby><ruby>族<rt>ぞく</rt></ruby>" }
+                ],
+                oni: [
+                    { kanji: "ワニのわなげ", kana: "わにのわなげ", romaji: "WANINOWANAGE", emoji: "🐊", ruby: "ワニのわなげ" },
+                    { kanji: "わいわいたのしい仲間", kana: "わいわいたのしいなかま", romaji: "WAIWAITANOSIINAKAMA", emoji: "🏫", ruby: "わいわいたのしい<ruby>仲<rt>なか</rt></ruby><ruby>間<rt>ま</rt></ruby>" }
+                ],
+                kami: [
+                    { kanji: "ワッフル", kana: "わっふる", romaji: "WAFFURU", emoji: "🧇", ruby: "ワッフル" },
+                    { kanji: "ワンピース", kana: "わんぴーす", romaji: "WANPI-SU", emoji: "👗", ruby: "ワンピース" }
+                ]
+            }
+        };
+
+        /* ----------------------------------------------------
+           3. キーと指のマッピング（ホームポジション・ルビ指定）
+        ---------------------------------------------------- */
+        const KEY_FINGER_MAP = {
+            'Q': { hand: 'left', finger: 'pinky', label: '<ruby>左<rt>ひだり</rt></ruby><ruby>手<rt>て</rt></ruby>の <ruby>小<rt>こ</rt></ruby><ruby>指<rt>ゆび</rt></ruby>', color: '#FF5964' },
+            'A': { hand: 'left', finger: 'pinky', label: '<ruby>左<rt>ひだり</rt></ruby><ruby>手<rt>て</rt></ruby>の <ruby>小<rt>こ</rt></ruby><ruby>指<rt>ゆび</rt></ruby>', color: '#FF5964' },
+            'Z': { hand: 'left', finger: 'pinky', label: '<ruby>左<rt>ひだり</rt></ruby><ruby>手<rt>て</rt></ruby>の <ruby>小<rt>こ</rt></ruby><ruby>指<rt>ゆび</rt></ruby>', color: '#FF5964' },
+
+            'W': { hand: 'left', finger: 'ring', label: '<ruby>左<rt>ひだり</rt></ruby><ruby>手<rt>て</rt></ruby>の <ruby>薬<rt>くすり</rt></ruby><ruby>指<rt>ゆび</rt></ruby>', color: '#FF9F1C' },
+            'S': { hand: 'left', finger: 'ring', label: '<ruby>左<rt>ひだり</rt></ruby><ruby>手<rt>て</rt></ruby>の <ruby>薬<rt>くすり</rt></ruby><ruby>指<rt>ゆび</rt></ruby>', color: '#FF9F1C' },
+            'X': { hand: 'left', finger: 'ring', label: '<ruby>左<rt>ひだり</rt></ruby><ruby>手<rt>て</rt></ruby>の <ruby>薬<rt>くすり</rt></ruby><ruby>指<rt>ゆび</rt></ruby>', color: '#FF9F1C' },
+
+            'E': { hand: 'left', finger: 'middle', label: '<ruby>左<rt>ひだり</rt></ruby><ruby>手<rt>て</rt></ruby>の <ruby>中<rt>なか</rt></ruby><ruby>指<rt>ゆび</rt></ruby>', color: '#FEE440' },
+            'D': { hand: 'left', finger: 'middle', label: '<ruby>左<rt>ひだり</rt></ruby><ruby>手<rt>て</rt></ruby>の <ruby>中<rt>なか</rt></ruby><ruby>指<rt>ゆび</rt></ruby>', color: '#FEE440' },
+            'C': { hand: 'left', finger: 'middle', label: '<ruby>左<rt>ひだり</rt></ruby><ruby>手<rt>て</rt></ruby>の <ruby>中<rt>なか</rt></ruby><ruby>指<rt>ゆび</rt></ruby>', color: '#FEE440' },
+
+            'R': { hand: 'left', finger: 'index', label: '<ruby>左<rt>ひだり</rt></ruby><ruby>手<rt>て</rt></ruby>の <ruby>人<rt>ひと</rt></ruby><ruby>差<rt>さ</rt></ruby>し<ruby>指<rt>ゆび</rt></ruby>', color: '#2EC4B6' },
+            'T': { hand: 'left', finger: 'index', label: '<ruby>左<rt>ひだり</rt></ruby><ruby>手<rt>て</rt></ruby>の <ruby>人<rt>ひと</rt></ruby><ruby>差<rt>さ</rt></ruby>し<ruby>指<rt>ゆび</rt></ruby>', color: '#2EC4B6' },
+            'F': { hand: 'left', finger: 'index', label: '<ruby>左<rt>ひだり</rt></ruby><ruby>手<rt>て</rt></ruby>の <ruby>人<rt>ひと</rt></ruby><ruby>差<rt>さ</rt></ruby>し<ruby>指<rt>ゆび</rt></ruby>', color: '#2EC4B6' },
+            'G': { hand: 'left', finger: 'index', label: '<ruby>左<rt>ひだり</rt></ruby><ruby>手<rt>て</rt></ruby>の <ruby>人<rt>ひと</rt></ruby><ruby>差<rt>さ</rt></ruby>し<ruby>指<rt>ゆび</rt></ruby>', color: '#2EC4B6' },
+            'V': { hand: 'left', finger: 'index', label: '<ruby>左<rt>ひだり</rt></ruby><ruby>手<rt>て</rt></ruby>の <ruby>人<rt>ひと</rt></ruby><ruby>差<rt>さ</rt></ruby>し<ruby>指<rt>ゆび</rt></ruby>', color: '#2EC4B6' },
+            'B': { hand: 'left', finger: 'index', label: '<ruby>左<rt>ひだり</rt></ruby><ruby>手<rt>て</rt></ruby>の <ruby>人<rt>ひと</rt></ruby><ruby>差<rt>さ</rt></ruby>し<ruby>指<rt>ゆび</rt></ruby>', color: '#2EC4B6' },
+
+            'Y': { hand: 'right', finger: 'index', label: '<ruby>右<rt>みぎ</rt></ruby><ruby>手<rt>て</rt></ruby>の <ruby>人<rt>ひと</rt></ruby><ruby>差<rt>さ</rt></ruby>し<ruby>指<rt>ゆび</rt></ruby>', color: '#00BBF9' },
+            'U': { hand: 'right', finger: 'index', label: '<ruby>右<rt>みぎ</rt></ruby><ruby>手<rt>て</rt></ruby>の <ruby>人<rt>ひと</rt></ruby><ruby>差<rt>さ</rt></ruby>し<ruby>指<rt>ゆび</rt></ruby>', color: '#00BBF9' },
+            'H': { hand: 'right', finger: 'index', label: '<ruby>右<rt>みぎ</rt></ruby><ruby>手<rt>て</rt></ruby>の <ruby>人<rt>ひと</rt></ruby><ruby>差<rt>さ</rt></ruby>し<ruby>指<rt>ゆび</rt></ruby>', color: '#00BBF9' },
+            'J': { hand: 'right', finger: 'index', label: '<ruby>右<rt>みぎ</rt></ruby><ruby>手<rt>て</rt></ruby>の <ruby>人<rt>ひと</rt></ruby><ruby>差<rt>さ</rt></ruby>し<ruby>指<rt>ゆび</rt></ruby>', color: '#00BBF9' },
+            'N': { hand: 'right', finger: 'index', label: '<ruby>右<rt>みぎ</rt></ruby><ruby>手<rt>て</rt></ruby>の <ruby>人<rt>ひと</rt></ruby><ruby>差<rt>さ</rt></ruby>し<ruby>指<rt>ゆび</rt></ruby>', color: '#00BBF9' },
+            'M': { hand: 'right', finger: 'index', label: '<ruby>右<rt>みぎ</rt></ruby><ruby>手<rt>て</rt></ruby>の <ruby>人<rt>ひと</rt></ruby><ruby>差<rt>さ</rt></ruby>し<ruby>指<rt>ゆび</rt></ruby>', color: '#00BBF9' },
+
+            'I': { hand: 'right', finger: 'middle', label: '<ruby>右<rt>みぎ</rt></ruby><ruby>手<rt>て</rt></ruby>の <ruby>中<rt>なか</rt></ruby><ruby>指<rt>ゆび</rt></ruby>', color: '#9B5DE5' },
+            'K': { hand: 'right', finger: 'middle', label: '<ruby>右<rt>みぎ</rt></ruby><ruby>手<rt>て</rt></ruby>の <ruby>中<rt>なか</rt></ruby><ruby>指<rt>ゆび</rt></ruby>', color: '#9B5DE5' },
+
+            'O': { hand: 'right', finger: 'ring', label: '<ruby>右<rt>みぎ</rt></ruby><ruby>手<rt>て</rt></ruby>の <ruby>薬<rt>くすり</rt></ruby><ruby>指<rt>ゆび</rt></ruby>', color: '#F15BB5' },
+            'L': { hand: 'right', finger: 'ring', label: '<ruby>右<rt>みぎ</rt></ruby><ruby>手<rt>て</rt></ruby>の <ruby>薬<rt>くすり</rt></ruby><ruby>指<rt>ゆび</rt></ruby>', color: '#F15BB5' },
+
+            'P': { hand: 'right', finger: 'pinky', label: '<ruby>右<rt>みぎ</rt></ruby><ruby>手<rt>て</rt></ruby>の <ruby>小<rt>こ</rt></ruby><ruby>指<rt>ゆび</rt></ruby>', color: '#F72585' },
+            '-': { hand: 'right', finger: 'pinky', label: '<ruby>右<rt>みぎ</rt></ruby><ruby>手<rt>て</rt></ruby>の <ruby>小<rt>こ</rt></ruby><ruby>指<rt>ゆび</rt></ruby>', color: '#F72585' }
+        };
+
+        const KEYBOARD_ROWS = [
+            ['Q', 'W', 'E', 'R', 'T', 'Y', 'U', 'I', 'O', 'P', '-'],
+            ['A', 'S', 'D', 'F', 'G', 'H', 'J', 'K', 'L'],
+            ['Z', 'X', 'C', 'V', 'B', 'N', 'M']
+        ];
+
+        /* ----------------------------------------------------
+           4. アプリ状態
+        ---------------------------------------------------- */
+        let state = {
+            studentName: '',
+            studentGrade: '1年',
+            studentClassGroup: '1組',
+            selectedRow: 'a',
+            selectedLevel: 'easy',
+            soundEnabled: true,
+            questions: [],
+            currentQuestionIdx: 0,
+            currentRomajiIdx: 0,
+            timer: 0,
+            timerInterval: null,
+            missCount: 0,
+            medals: {},
+            totalPlayCount: 0
+        };
+
+        let teacherAllRecords = [];
+        let audioCtx = null;
+        let lastUsedQuestionKanji = '';
+
+        function initAudio() {
+            if (!audioCtx) {
+                audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+            }
+        }
+
+        function playTone(freq, type, duration, delay = 0) {
+            if (!state.soundEnabled) return;
+            initAudio();
+            setTimeout(() => {
+                try {
+                    const osc = audioCtx.createOscillator();
+                    const gain = audioCtx.createGain();
+                    osc.type = type;
+                    osc.frequency.value = freq;
+                    gain.gain.setValueAtTime(0.15, audioCtx.currentTime);
+                    gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + duration);
+                    osc.connect(gain);
+                    gain.connect(audioCtx.destination);
+                    osc.start();
+                    osc.stop(audioCtx.currentTime + duration);
+                } catch(e) {}
+            }, delay);
+        }
+
+        function playKeySound() { playTone(600, 'sine', 0.05); }
+        function playCorrectSound() { 
+            playTone(523.25, 'sine', 0.1, 0);
+            playTone(659.25, 'sine', 0.15, 80);
+        }
+        function playMissSound() { playTone(150, 'sawtooth', 0.2); }
+        function playClearFanfare() {
+            playTone(523.25, 'triangle', 0.15, 0);
+            playTone(659.25, 'triangle', 0.15, 120);
+            playTone(783.99, 'triangle', 0.15, 240);
+            playTone(1046.50, 'triangle', 0.4, 360);
+        }
+
+        /* ----------------------------------------------------
+           5. キーボード構築 & UI選択
+        ---------------------------------------------------- */
+        function buildKeyboardUI() {
+            const container = document.getElementById('keyboard-container');
+            if (!container) return;
+            container.innerHTML = '';
+
+            KEYBOARD_ROWS.forEach(row => {
+                const rowDiv = document.createElement('div');
+                rowDiv.className = 'flex justify-center gap-1 sm:gap-1.5 my-1';
+                row.forEach(key => {
+                    const keyBtn = document.createElement('div');
+                    keyBtn.id = `key-${key}`;
+                    keyBtn.className = 'key-btn w-7 sm:w-10 md:w-12 h-9 sm:h-11 md:h-12 bg-white border-2 border-slate-300 rounded-lg sm:rounded-xl flex items-center justify-center font-black text-sm sm:text-lg md:text-xl text-slate-700 shadow-sm transition';
+                    keyBtn.innerText = key;
+                    rowDiv.appendChild(keyBtn);
+                });
+                container.appendChild(rowDiv);
+            });
+        }
+
+        function selectRow(rowKey) {
+            state.selectedRow = rowKey;
+            document.querySelectorAll('.row-btn').forEach(btn => {
+                btn.classList.remove('bg-amber-400', 'text-amber-950', 'border-amber-600', 'scale-105');
+                btn.classList.add('bg-orange-100', 'text-orange-600', 'border-orange-300');
+            });
+            const target = document.getElementById(`btn-row-${rowKey}`);
+            if (target) {
+                target.classList.remove('bg-orange-100', 'text-orange-600', 'border-orange-300');
+                target.classList.add('bg-amber-400', 'text-amber-950', 'border-amber-600', 'scale-105');
+            }
+        }
+
+        function selectLevel(levelKey) {
+            state.selectedLevel = levelKey;
+            document.querySelectorAll('.level-btn').forEach(btn => {
+                btn.classList.remove('ring-4', 'ring-yellow-400', 'scale-105');
+            });
+            const target = document.getElementById(`btn-level-${levelKey}`);
+            if (target) {
+                target.classList.add('ring-4', 'ring-yellow-400', 'scale-105');
+            }
+        }
+
+        function toggleSound() {
+            state.soundEnabled = !state.soundEnabled;
+            const icon = document.getElementById('sound-icon');
+            const text = document.getElementById('sound-text');
+            if (state.soundEnabled) {
+                icon.innerText = '🔊';
+                text.innerHTML = '<ruby>音<rt>おと</rt></ruby>：オン';
+            } else {
+                icon.innerText = '🔇';
+                text.innerHTML = '<ruby>音<rt>おと</rt></ruby>：オフ';
+            }
+        }
+
+        /* ----------------------------------------------------
+           6. ゲーム動作ロジック (出題重複防止)
+        ---------------------------------------------------- */
+        function startGame() {
+            state.questions = [];
+            state.currentQuestionIdx = 0;
+            state.currentRomajiIdx = 0;
+            state.missCount = 0;
+            state.timer = 0;
+
+            let pool = [];
+
+            if (state.selectedLevel === 'easy') {
+                if (state.selectedRow === 'all') {
+                    const allKeys = ['a', 'ka', 'sa', 'ta', 'na', 'ha', 'ma', 'ya', 'ra', 'wa'];
+                    allKeys.forEach(r => {
+                        if (GOJUON_DATA[r]) pool.push(...GOJUON_DATA[r]);
+                    });
+                } else if (GOJUON_DATA[state.selectedRow]) {
+                    pool = [...GOJUON_DATA[state.selectedRow]];
+                }
+                state.questions = pool.slice(0, 5);
+            } else {
+                const levelKey = state.selectedLevel;
+                if (state.selectedRow === 'all') {
+                    const allKeys = ['a', 'ka', 'sa', 'ta', 'na', 'ha', 'ma', 'ya', 'ra', 'wa'];
+                    allKeys.forEach(r => {
+                        if (WORD_DATA[r] && WORD_DATA[r][levelKey]) {
+                            pool.push(...WORD_DATA[r][levelKey]);
+                        }
+                    });
+                } else if (WORD_DATA[state.selectedRow] && WORD_DATA[state.selectedRow][levelKey]) {
+                    pool = [...WORD_DATA[state.selectedRow][levelKey]];
+                }
+
+                if (pool.length === 0) {
+                    pool = WORD_DATA['a'][levelKey] || GOJUON_DATA['a'];
+                }
+
+                const shuffled = [...pool].sort(() => Math.random() - 0.5);
+                const selected = [];
+
+                for (let q of shuffled) {
+                    if (q.kanji !== lastUsedQuestionKanji && !selected.some(item => item.kanji === q.kanji)) {
+                        selected.push(q);
+                    }
+                    if (selected.length === 5) break;
+                }
+
+                while (selected.length < 5 && pool.length > 0) {
+                    const item = pool[Math.floor(Math.random() * pool.length)];
+                    if (!selected.some(x => x.kanji === item.kanji) || selected.length < pool.length) {
+                        selected.push(item);
+                    }
+                    if (selected.length === pool.length) break;
+                }
+
+                state.questions = selected.slice(0, 5);
+                if (state.questions.length > 0) {
+                    lastUsedQuestionKanji = state.questions[state.questions.length - 1].kanji;
+                }
+            }
+
+            if (state.questions.length === 0) {
+                alert('もんだいが ありません');
+                return;
+            }
+
+            document.getElementById('miss-display').innerText = '0';
+            document.getElementById('timer-display').innerText = '0';
+
+            clearInterval(state.timerInterval);
+            state.timerInterval = setInterval(() => {
+                state.timer++;
+                document.getElementById('timer-display').innerText = state.timer;
+            }, 1000);
+
+            showScreen('game-screen');
+            renderQuestion();
+        }
+
+        function renderQuestion() {
+            const q = state.questions[state.currentQuestionIdx];
+            if (!q) return;
+
+            document.getElementById('question-progress').innerText = `${state.currentQuestionIdx + 1}/${state.questions.length}`;
+            document.getElementById('word-emoji').innerText = q.emoji || '✨';
+            document.getElementById('word-kanji-container').innerHTML = q.ruby || q.kanji;
+
+            const romajiContainer = document.getElementById('word-romaji-container');
+            romajiContainer.innerHTML = '';
+
+            for (let i = 0; i < q.romaji.length; i++) {
+                const span = document.createElement('span');
+                span.innerText = q.romaji[i];
+                if (i < state.currentRomajiIdx) {
+                    span.className = 'text-emerald-500 font-black';
+                } else if (i === state.currentRomajiIdx) {
+                    span.className = 'text-amber-500 font-black underline bg-amber-100 px-1 rounded animate-pulse';
+                } else {
+                    span.className = 'text-slate-400 font-bold';
+                }
+                romajiContainer.appendChild(span);
+            }
+
+            updateFingerGuide();
+        }
+
+        function updateFingerGuide() {
+            const q = state.questions[state.currentQuestionIdx];
+            if (!q) return;
+
+            const targetKey = q.romaji[state.currentRomajiIdx];
+            const fingerInfo = KEY_FINGER_MAP[targetKey];
+
+            document.querySelectorAll('.key-btn').forEach(btn => {
+                btn.classList.remove('active-key');
+            });
+
+            const activeKeyElem = document.getElementById(`key-${targetKey}`);
+            if (activeKeyElem) {
+                activeKeyElem.classList.add('active-key');
+            }
+
+            const allFingers = [
+                'hand-left-pinky', 'hand-left-ring', 'hand-left-middle', 'hand-left-index', 'hand-left-thumb',
+                'hand-right-thumb', 'hand-right-index', 'hand-right-middle', 'hand-right-ring', 'hand-right-pinky'
+            ];
+
+            allFingers.forEach(id => {
+                const elem = document.getElementById(id);
+                if (elem) {
+                    elem.setAttribute('fill', '#FFE0BD');
+                    elem.setAttribute('stroke', '#D4A373');
+                    elem.classList.remove('finger-active');
+                }
+            });
+
+            const instructionElem = document.getElementById('finger-instruction');
+
+            if (fingerInfo) {
+                const fingerSvgId = `hand-${fingerInfo.hand}-${fingerInfo.finger}`;
+                const activeFingerSvg = document.getElementById(fingerSvgId);
+                if (activeFingerSvg) {
+                    activeFingerSvg.setAttribute('fill', fingerInfo.color);
+                    activeFingerSvg.setAttribute('stroke', '#000000');
+                    activeFingerSvg.classList.add('finger-active');
+                }
+
+                instructionElem.innerHTML = `${fingerInfo.label} で 『<strong>${targetKey}</strong>』 を <ruby>押<rt>お</rt></ruby>そう！`;
+            } else {
+                instructionElem.innerHTML = `『<strong>${targetKey}</strong>』 を <ruby>押<rt>お</rt></ruby>そう！`;
+            }
+        }
+
+        function handleKeyDown(e) {
+            const gameScreen = document.getElementById('game-screen');
+            if (gameScreen.classList.contains('hidden')) return;
+
+            if (e.ctrlKey || e.altKey || e.metaKey) return;
+
+            const key = e.key.toUpperCase();
+            const q = state.questions[state.currentQuestionIdx];
+            if (!q) return;
+
+            const targetKey = q.romaji[state.currentRomajiIdx];
+
+            if (key === targetKey) {
+                playCorrectSound();
+                state.currentRomajiIdx++;
+
+                if (state.currentRomajiIdx >= q.romaji.length) {
+                    state.currentQuestionIdx++;
+                    state.currentRomajiIdx = 0;
+
+                    if (state.currentQuestionIdx >= state.questions.length) {
+                        finishGame();
+                    } else {
+                        renderQuestion();
+                    }
+                } else {
+                    renderQuestion();
+                }
+            } else {
+                if (key.length === 1 && (/[A-Z\-]/i.test(key))) {
+                    state.missCount++;
+                    document.getElementById('miss-display').innerText = state.missCount;
+                    playMissSound();
+                }
+            }
+        }
+
+        function finishGame() {
+            clearInterval(state.timerInterval);
+
+            let medal = 'bronze';
+            let title = '🎉 クリア おめでとう！';
+            let icon = '🥉';
+
+            if (state.missCount === 0 && state.timer <= 25) {
+                medal = 'gold';
+                icon = '🥇';
+                title = '🌟 かんぺき！きんメダル！ 🌟';
+            } else if (state.missCount <= 3 && state.timer <= 45) {
+                medal = 'silver';
+                icon = '🥈';
+                title = '👍 すごい！ぎんメダル！ 👍';
+            } else {
+                medal = 'bronze';
+                icon = '🥉';
+                title = '👏 よくがんばった！どうメダル！ 👏';
+            }
+
+            saveMedal(state.selectedRow, state.selectedLevel, medal);
+            saveProgressToCloud();
+
+            playClearFanfare();
+            if (medal === 'gold' || medal === 'silver') {
+                triggerConfetti();
+            }
+
+            document.getElementById('result-medal-icon').innerText = icon;
+            document.getElementById('result-medal-title').innerText = title;
+            document.getElementById('result-time').innerHTML = `${state.timer} <ruby>秒<rt>びょう</rt></ruby>`;
+            document.getElementById('result-miss').innerHTML = `${state.missCount} <ruby>回<rt>かい</rt></ruby>`;
+
+            showScreen('result-screen');
+        }
+
+        /* ----------------------------------------------------
+           7. 初期化 & 画面遷移
+        ---------------------------------------------------- */
+        window.addEventListener('load', async () => {
+            await initCloudStorage();
+            checkStudentName();
+            loadMedals();
+            buildKeyboardUI();
+            selectRow('a');
+            selectLevel('easy');
+
+            window.addEventListener('keydown', handleKeyDown);
+        });
+
+        // グローバル関数バインド
+        window.saveStudentName = saveStudentName;
+        window.openNameModal = openNameModal;
+        window.openTeacherPassModal = openTeacherPassModal;
+        window.closeTeacherPassModal = closeTeacherPassModal;
+        window.submitTeacherPass = submitTeacherPass;
+        window.filterTeacherRecords = filterTeacherRecords;
+        window.toggleSound = toggleSound;
+        window.showScreen = showScreen;
+        window.selectRow = selectRow;
+        window.selectLevel = selectLevel;
+        window.startGame = startGame;
+
+        /* ----------------------------------------------------
+           8. パスコード & 児童情報管理
+        ---------------------------------------------------- */
+        function openTeacherPassModal() {
+            document.getElementById('teacher-pass-input').value = '';
+            document.getElementById('teacher-pass-modal').classList.remove('hidden');
+        }
+
+        function closeTeacherPassModal() {
+            document.getElementById('teacher-pass-modal').classList.add('hidden');
+        }
+
+        function submitTeacherPass() {
+            const val = document.getElementById('teacher-pass-input').value;
+            if (val === '1461') {
+                closeTeacherPassModal();
+                showTeacherDashboard();
+            } else {
+                alert('パスコードが ちがいます');
+            }
+        }
+
+        function checkStudentName() {
+            const savedName = localStorage.getItem('typing_kids_student_name');
+            const savedGrade = localStorage.getItem('typing_kids_student_grade') || '1年';
+            const savedClass = localStorage.getItem('typing_kids_student_class') || '1組';
+
+            if (savedName) {
+                state.studentName = savedName;
+                state.studentGrade = savedGrade;
+                state.studentClassGroup = savedClass;
+                document.getElementById('current-user-display').innerText = `${savedGrade}${savedClass} ${savedName}`;
+                document.getElementById('name-modal').classList.add('hidden');
+            } else {
+                document.getElementById('name-modal').classList.remove('hidden');
+            }
+        }
+
+        function openNameModal() {
+            document.getElementById('student-name-input').value = state.studentName || '';
+            document.getElementById('student-grade-select').value = state.studentGrade || '1年';
+            document.getElementById('student-class-select').value = state.studentClassGroup || '1組';
+            document.getElementById('name-modal').classList.remove('hidden');
+        }
+
+        function saveStudentName() {
+            const val = document.getElementById('student-name-input').value.trim();
+            const grade = document.getElementById('student-grade-select').value;
+            const classGrp = document.getElementById('student-class-select').value;
+
+            if (!val) return;
+            state.studentName = val;
+            state.studentGrade = grade;
+            state.studentClassGroup = classGrp;
+
+            localStorage.setItem('typing_kids_student_name', val);
+            localStorage.setItem('typing_kids_student_grade', grade);
+            localStorage.setItem('typing_kids_student_class', classGrp);
+
+            document.getElementById('current-user-display').innerText = `${grade}${classGrp} ${val}`;
+            document.getElementById('name-modal').classList.add('hidden');
+        }
+
+        function showScreen(screenId) {
+            ['title-screen', 'game-screen', 'result-screen', 'medal-screen', 'teacher-screen'].forEach(id => {
+                document.getElementById(id).classList.add('hidden');
+            });
+            document.getElementById(screenId).classList.remove('hidden');
+
+            if (screenId === 'medal-screen') {
+                renderMedalCollection();
+            }
+
+            if (screenId !== 'game-screen') {
+                clearInterval(state.timerInterval);
+            }
+        }
+
+        /* ----------------------------------------------------
+           9. 先生用ダッシュボード（リアルタイム取得＆フィルター）
+        ---------------------------------------------------- */
+        let unsubscribeTeacherData = null;
+
+        function showTeacherDashboard() {
+            showScreen('teacher-screen');
+
+            if (!db) return;
+
+            const colRef = collection(db, 'artifacts', appId, 'public', 'data', 'student_records');
+
+            if (unsubscribeTeacherData) unsubscribeTeacherData();
+
+            unsubscribeTeacherData = onSnapshot(colRef, (snapshot) => {
+                teacherAllRecords = [];
+                const classSet = new Set();
+
+                snapshot.forEach(doc => {
+                    const data = doc.data();
+                    teacherAllRecords.push(data);
+                    if (data.gradeClass) {
+                        classSet.add(data.gradeClass);
+                    }
+                });
+
+                teacherAllRecords.sort((a, b) => (b.updatedAt || 0) - (a.updatedAt || 0));
+
+                const filterSelect = document.getElementById('teacher-class-filter');
+                const currentVal = filterSelect.value;
+                filterSelect.innerHTML = '<option value="all">すべてのクラス</option>';
+
+                Array.from(classSet).sort().forEach(cls => {
+                    const opt = document.createElement('option');
+                    opt.value = cls;
+                    opt.innerText = cls;
+                    filterSelect.appendChild(opt);
+                });
+
+                filterSelect.value = currentVal;
+                renderTeacherRecordsTable();
+            }, (err) => {
+                console.error("Teacher snapshot error:", err);
+            });
+        }
+
+        function filterTeacherRecords() {
+            renderTeacherRecordsTable();
+        }
+
+        function renderTeacherRecordsTable() {
+            const tbody = document.getElementById('teacher-records-tbody');
+            const selectedClass = document.getElementById('teacher-class-filter').value;
+            tbody.innerHTML = '';
+
+            const filtered = selectedClass === 'all' 
+                ? teacherAllRecords 
+                : teacherAllRecords.filter(r => r.gradeClass === selectedClass);
+
+            if (filtered.length === 0) {
+                tbody.innerHTML = `<tr><td colspan="5" class="p-4 text-center text-slate-400">学習記録がありません</td></tr>`;
+                return;
+            }
+
+            filtered.forEach(rec => {
+                let gold = 0, silver = 0, bronze = 0;
+                if (rec.medals) {
+                    Object.values(rec.medals).forEach(m => {
+                        if (m === 'gold') gold++;
+                        if (m === 'silver') silver++;
+                        if (m === 'bronze') bronze++;
+                    });
+                }
+
+                const dateStr = rec.updatedAt ? new Date(rec.updatedAt).toLocaleString('ja-JP', { month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit' }) : '-';
+                const classLabel = rec.gradeClass || `${rec.grade || '1年'}${rec.classGroup || '1組'}`;
+
+                const tr = document.createElement('tr');
+                tr.className = 'hover:bg-purple-50 transition';
+                tr.innerHTML = `
+                    <td class="p-2 font-black text-purple-700 text-xs">${classLabel}</td>
+                    <td class="p-2 font-black text-purple-900">${rec.name || 'ななし'}</td>
+                    <td class="p-2 text-center text-slate-800 font-bold">${rec.playCount || 0} 回</td>
+                    <td class="p-2 text-center">
+                        <span class="text-amber-600">🥇${gold}</span>
+                        <span class="text-slate-500 ml-1">🥈${silver}</span>
+                        <span class="text-amber-800 ml-1">🥉${bronze}</span>
+                    </td>
+                    <td class="p-2 text-center text-xs text-slate-500">${dateStr}</td>
+                `;
+                tbody.appendChild(tr);
+            });
+        }
+
+        /* ----------------------------------------------------
+           10. クラウド保存 & メダル表示
+        ---------------------------------------------------- */
+        async function saveProgressToCloud() {
+            if (!db || !state.studentName) return;
+
+            state.totalPlayCount = (state.totalPlayCount || 0) + 1;
+            localStorage.setItem('typing_kids_play_count', state.totalPlayCount);
+
+            const gradeClass = `${state.studentGrade}${state.studentClassGroup}`;
+
+            try {
+                const docRef = doc(db, 'artifacts', appId, 'public', 'data', 'student_records', `${gradeClass}_${state.studentName}`);
+                await setDoc(docRef, {
+                    name: state.studentName,
+                    grade: state.studentGrade,
+                    classGroup: state.studentClassGroup,
+                    gradeClass: gradeClass,
+                    playCount: state.totalPlayCount,
+                    medals: state.medals,
+                    updatedAt: Date.now()
+                }, { merge: true });
+            } catch(e) {
+                console.error("Failed to save student record to cloud:", e);
+            }
+        }
+
+        function loadMedals() {
+            try {
+                const data = localStorage.getItem('typing_kids_medals');
+                if (data) state.medals = JSON.parse(data);
+
+                const count = localStorage.getItem('typing_kids_play_count');
+                if (count) state.totalPlayCount = parseInt(count, 10);
+            } catch(e) {}
+        }
+
+        function saveMedal(row, level, medal) {
+            const key = `${row}_${level}`;
+            const current = state.medals[key];
+
+            const rank = { gold: 3, silver: 2, bronze: 1 };
+            if (!current || rank[medal] > rank[current]) {
+                state.medals[key] = medal;
+                try {
+                    localStorage.setItem('typing_kids_medals', JSON.stringify(state.medals));
+                } catch(e) {}
+            }
+        }
+
+        function renderMedalCollection() {
+            const grid = document.getElementById('medal-grid');
+            grid.innerHTML = '';
+
+            const rowKeys = ['a', 'ka', 'sa', 'ta', 'na', 'ha', 'ma', 'ya', 'ra', 'wa', 'all'];
+            const levels = [
+                { key: 'easy', name: '🐣 <ruby>初<rt>しょ</rt></ruby><ruby>級<rt>きゅう</rt></ruby>' },
+                { key: 'medium', name: '🐥 <ruby>中<rt>ちゅう</rt></ruby><ruby>級<rt>きゅう</rt></ruby>' },
+                { key: 'hard', name: '🦁 <ruby>上<rt>じょう</rt></ruby><ruby>級<rt>きゅう</rt></ruby>' },
+                { key: 'oni', name: '👹 <ruby>鬼<rt>おに</rt></ruby><ruby>級<rt>きゅう</rt></ruby>' },
+                { key: 'kami', name: '👑 <ruby>神<rt>かみ</rt></ruby><ruby>級<rt>きゅう</rt></ruby>' }
+            ];
+
+            rowKeys.forEach(r => {
+                const rowName = r === 'all' ? '<ruby>全<rt>ぜん</rt></ruby><ruby>部<rt>ぶ</rt></ruby>' : WORD_DATA[r].name;
+                levels.forEach(l => {
+                    const medalKey = `${r}_${l.key}`;
+                    const medalType = state.medals[medalKey];
+
+                    let icon = '🔒';
+                    let bg = 'bg-slate-100 border-slate-300 text-slate-400';
+
+                    if (medalType === 'gold') {
+                        icon = '🥇';
+                        bg = 'bg-yellow-100 border-yellow-400 text-yellow-800';
+                    } else if (medalType === 'silver') {
+                        icon = '🥈';
+                        bg = 'bg-slate-200 border-slate-400 text-slate-700';
+                    } else if (medalType === 'bronze') {
+                        icon = '🥉';
+                        bg = 'bg-amber-100 border-amber-500 text-amber-900';
+                    }
+
+                    const card = document.createElement('div');
+                    card.className = `p-2 rounded-xl border-2 text-center shadow ${bg}`;
+                    card.innerHTML = `
+                        <div class="text-2xl md:text-3xl mb-0.5">${icon}</div>
+                        <div class="font-black text-xs md:text-sm">${rowName}</div>
+                        <div class="text-[10px] md:text-xs font-bold opacity-80">${l.name}</div>
+                    `;
+                    grid.appendChild(card);
+                });
+            });
+        }
+
+        /* ----------------------------------------------------
+           11. 紙吹雪演出
+        ---------------------------------------------------- */
+        function triggerConfetti() {
+            const canvas = document.getElementById('confetti-canvas');
+            const ctx = canvas.getContext('2d');
+            canvas.width = window.innerWidth;
+            canvas.height = window.innerHeight;
+
+            const pieces = [];
+            const colors = ['#f43f5e', '#8b5cf6', '#06b6d4', '#10b981', '#f59e0b', '#ec4899'];
+
+            for (let i = 0; i < 100; i++) {
+                pieces.push({
+                    x: Math.random() * canvas.width,
+                    y: Math.random() * canvas.height - canvas.height,
+                    size: Math.random() * 10 + 5,
+                    color: colors[Math.floor(Math.random() * colors.length)],
+                    speedY: Math.random() * 4 + 3,
+                    speedX: Math.random() * 4 - 2,
+                    rotation: Math.random() * 360,
+                    rotSpeed: Math.random() * 10 - 5
+                });
+            }
+
+            let startTime = Date.now();
+
+            function update() {
+                ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+                pieces.forEach(p => {
+                    p.y += p.speedY;
+                    p.x += p.speedX;
+                    p.rotation += p.rotSpeed;
+
+                    ctx.save();
+                    ctx.translate(p.x, p.y);
+                    ctx.rotate((p.rotation * Math.PI) / 180);
+                    ctx.fillStyle = p.color;
+                    ctx.fillRect(-p.size / 2, -p.size / 2, p.size, p.size);
+                    ctx.restore();
+                });
+
+                if (Date.now() - startTime < 3500) {
+                    requestAnimationFrame(update);
+                } else {
+                    ctx.clearRect(0, 0, canvas.width, canvas.height);
+                }
+            }
+
+            update();
+        }
+    </script>
+</body>
+</html>
